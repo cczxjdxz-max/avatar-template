@@ -1,0 +1,103 @@
+# اسم سير العمل: المتحكم الرئيسي
+name: 2. Gemini Main Controller
+
+# المشغل: يعمل عند استقبال إشارة من مستودع آخر
+on:
+  repository_dispatch:
+    # يستجيب لنوعين من الإشارات: فشل أولي، أو فشل التصحيح
+    types: [executor_failed, correction_failed]
+
+jobs:
+  # اسم الوظيفة: تحليل الخطأ واقتراح تصحيح
+  evaluate_and_correct:
+    runs-on: ubuntu-latest
+    steps:
+      # الخطوة 1: استنساخ كود القائد نفسه للوصول إلى أي سكربتات مستقبلية
+      - name: "Checkout Leader's code (avatar-template)"
+        uses: actions/checkout@v4
+
+      # الخطوة 2: تحديد نوع الفشل واستخراج البيانات المرسلة من المنفذ
+      - name: "Identify failure type and extract data"
+        id: failure_data
+        run: |
+          FAILURE_TYPE=""
+          if [[ "${{ github.event.action }}" == "executor_failed" ]]; then
+            FAILURE_TYPE="initial_failure"
+          elif [[ "${{ github.event.action }}" == "correction_failed" ]]; then
+            FAILURE_TYPE="self_correction"
+          fi
+          echo "type=${FAILURE_TYPE}" >> $GITHUB_OUTPUT
+          
+          echo "Extracting payload from 'Full' repo..."
+          # حفظ البيانات المرسلة (الـ payload) في ملف لاستخدامها لاحقاً
+          echo '${{ toJSON(github.event.client_payload) }}' > payload.json
+          
+          echo "Failure Type: $FAILURE_TYPE"
+          echo "Payload received:"
+          cat payload.json
+
+      # الخطوة 3: إعداد وتجهيز السؤال الذي سيتم إرساله إلى Gemini
+      - name: "Prepare Gemini Query"
+        id: gemini_query
+        run: |
+          # تثبيت أداة jq لمعالجة ملفات JSON
+          sudo apt-get install -y jq
+
+          # قراءة البيانات من الملف الذي تم إنشاؤه في الخطوة السابقة
+          ERROR_LOG=$(jq -r '.error_log' payload.json)
+          CODE_SNIPPET=$(jq -r '.code_snippet' payload.json)
+          TARGET_GOAL=$(jq -r '.goal' payload.json)
+
+          # بناء نص السؤال الأساسي لـ Gemini
+          QUERY="The primary goal is: '${TARGET_GOAL}'. The following code snippet in the 'Full' repository failed: \`\`\`bash\n${CODE_SNIPPET}\n\`\`\`. The resulting error log is: \`\`\`\n${ERROR_LOG}\n\`\`\`. Analyze the problem and provide a corrected version of the code snippet. Your response must contain ONLY the corrected code block, without any explanation before or after."
+          
+          # إذا كان هذا "تصحيحاً ذاتياً" (فشل المحاولة السابقة)، أضف المزيد من السياق للسؤال
+          if [[ "${{ steps.failure_data.outputs.type }}" == "self_correction" ]]; then
+            PREVIOUS_FIX=$(jq -r '.previous_fix' payload.json)
+            QUERY="CRITICAL: My previous attempt to fix the code also failed. ${QUERY} My previously suggested fix, which was wrong, was: \`\`\`bash\n${PREVIOUS_FIX}\n\`\`\`. Analyze my own mistake in the previous fix and provide a new, better correction. Remember, only output the corrected code block."
+          fi
+          
+          # حفظ السؤال النهائي في متغير بيئة ليستخدمه cURL
+          # (هذه الطريقة أفضل من تمرير النص مباشرة في سطر الأوامر)
+          echo "GEMINI_QUERY_BODY<<EOF" >> $GITHUB_ENV
+          echo "$QUERY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      # الخطوة 4: استشارة Gemini للحصول على التصحيح
+      - name: "Consult Gemini for a fix"
+        id: gemini_call
+        run: |
+          echo "Sending query to Gemini API..."
+          # استدعاء Gemini API باستخدام cURL وحفظ الرد في ملف "response.json"
+          curl --silent --output response.json \
+            -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d @- <<EOF
+            {
+              "contents": [{
+                "parts": [{
+                  "text": "${{ env.GEMINI_QUERY_BODY }}"
+                }]
+              }]
+            }
+          EOF
+          
+          echo "Response received from Gemini."
+          # استخراج الكود المصحح فقط من الرد وحفظه في ملف "fix.txt"
+          jq -r '.candidates[0].content.parts[0].text' response.json > fix.txt
+          
+          echo "Extracted fix:"
+          cat fix.txt
+
+      # الخطوة 5: إنشاء طلب سحب (Pull Request) بالتصحيح في مستودع المنفذ
+      - name: "Create Pull Request in 'Full' Repo"
+        env:
+          # توكن خاص بـ GitHub للقيام بعمليات مثل إنشاء طلبات السحب
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Creating a Pull Request in the 'Full' repository..."
+          # هذا الجزء يتطلب إعدادات إضافية وسكربت معقد
+          # في الوقت الحالي، سنكتفي بطباعة ما يجب فعله
+          echo "This step requires a more complex script to checkout the 'Full' repo, create a new branch, apply the fix, and open a PR."
+          echo "The suggested fix is in 'fix.txt'."
+
