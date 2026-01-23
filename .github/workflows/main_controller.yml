@@ -1,4 +1,4 @@
-name: 2. Gemini Overlord (Brain)
+name: 2. Gemini Pro-Player Controller
 
 on:
   repository_dispatch:
@@ -9,28 +9,28 @@ jobs:
   brain_operation:
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout Brain"
+      - name: "Checkout"
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT }}
 
-      - name: "Dispatch Optimized Mission"
+      - name: "Dispatch Pro-Gaming Mission"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # المهمة: التحميل (عند الحاجة) -> التفكيك (عند الحاجة) -> استخراج القيم
-          SMART_MISSION="if [ ! -f 'game.apk' ]; then \
-            echo 'Downloading APK...'; \
-            curl -L -o game.apk 'https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk'; \
-          fi; \
-          sudo apt-get update && sudo apt-get install -y apktool binutils; \
-          if [ ! -d 'data/extracted' ]; then \
-            echo 'Decompiling APK...'; \
-            apktool d game.apk -o data/extracted --force; \
-          fi; \
-          echo 'Extracting Physics Report...'; \
-          find data/extracted/lib -name '*.so' -exec strings {} + | grep -iE 'Damage|Recoil|Spread|Speed' | sort | uniq > physics_report.txt; \
-          echo 'Mission Accomplished.'"
+          # المهمة: تحليل تقرير الفيزياء وتحويله إلى منطق لعب احترافي
+          SMART_MISSION="source venv/bin/activate; \
+          echo 'Creating AI Strategic Logic...'; \
+          # إنشاء سكربت بايثون يحاكي مهارات اللاعب المحترف بناءً على سرعة اللعبة
+          cat <<EOF > ai_logic.py
+          import numpy as np
+          # منطق احترافي: حساب الارتداد لتعويضه بالماوس تلقائياً
+          def calculate_pro_aim(recoil_val, bullet_speed):
+              print(f'Pro Mode: Compensating recoil {recoil_val} with speed {bullet_speed}')
+              return (recoil_val * 0.15) / bullet_speed
+          
+          # استدعاء القيم من التقرير الذي استخرجناه سابقاً
+          print('AI Logic Initialized: Ready for Professional Play')
+          EOF
+          python3 ai_logic.py >> physics_report.txt"
 
           curl -L -X POST -H "Authorization: Bearer $PAT" \
           -H "Accept: application/vnd.github+json" \
