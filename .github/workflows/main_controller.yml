@@ -1,43 +1,22 @@
-name: 2. Gemini Overlord (Brain)
-
-on:
-  repository_dispatch:
-    types: [executor_failed, mission_update]
-  workflow_dispatch:
-
-jobs:
-  think_and_evolve:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout Brain"
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT }}
-
-      - name: "Consult Gemini to Fix or Update"
+      - name: "Rewrite Executor Workflow"
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          ERROR_DATA: ${{ toJSON(github.event.client_payload) }}
+          PAT: ${{ secrets.PAT }}
         run: |
-          # جيمني يحلل الخطأ ويكتب ملف YAML جديد للمنفذ
-          QUERY="The executor failed or needs update. Error: $ERROR_DATA. 
-                 Provide a COMPLETE GitHub Actions YAML for the repository 'Full' 
-                 to download FreeFire, dissect it, and fix this error. 
-                 Return ONLY the YAML code block."
+          # 1. تحويل الملف الجديد إلى Base64
+          CONTENT=$(base64 -w 0 new_executor_config.yml)
           
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=$GOOGLE_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{ \"contents\": [{\"parts\": [{\"text\": \"$QUERY\"}]}] }")
+          # 2. الحصول على SHA للملف الحالي لتحديثه
+          FILE_URL="https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml"
+          SHA=$(curl -s -H "Authorization: Bearer $PAT" "$FILE_URL" | jq -r '.sha')
           
-          echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed '/^yaml/d' > new_executor_config.yml
-
-      - name: "Rewrite Executor's Workflow"
-        run: |
-          # إرسال الكود الجديد لمستودع المنفذ وتحديثه فعلياً
-          NEW_YML=$(cat new_executor_config.yml | base64 -w 0)
-          SHA=$(curl -H "Authorization: Bearer ${{ secrets.PAT }}" \
-            [https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml](https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml) | jq -r '.sha')
-          
-          curl -X PUT -H "Authorization: Bearer ${{ secrets.PAT }}" \
-            -d "{\"message\":\"Gemini: Auto-Fixing Workflow\",\"content\":\"$NEW_YML\",\"sha\":\"$SHA\"}" \
-            [https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml](https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml)
+          # 3. إرسال التحديث للمنفذ (بدون أقواس أو روابط Markdown)
+          if [ "$SHA" != "null" ]; then
+            curl -s -X PUT -H "Authorization: Bearer $PAT" \
+              -H "Content-Type: application/json" \
+              -d "{\"message\":\"Gemini: Self-Heal Update\",\"content\":\"$CONTENT\",\"sha\":\"$SHA\"}" \
+              "$FILE_URL"
+            echo "Successfully updated executor workflow."
+          else
+            echo "Could not find target file or SHA."
+            exit 1
+          fi
