@@ -21,24 +21,26 @@ jobs:
           PAYLOAD: ${{ toJSON(github.event.client_payload) }}
         run: |
           ERROR_LOG=$(echo $PAYLOAD | jq -r '.error_log')
-          QUERY="The training executor failed with: $ERROR_LOG. Provide a corrected Python script for the RL training loop. Output ONLY the code block."
+          QUERY="The training executor failed with: $ERROR_LOG. Provide a corrected shell script for the training loop inside GitHub Actions. Output ONLY the code."
           
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=$GOOGLE_API_KEY" \
             -H "Content-Type: application/json" \
             -d "{ \"contents\": [{\"parts\": [{\"text\": \"$QUERY\"}]}] }")
           
-          # استخراج الكود فقط وتخزينه لإرساله
-          echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > fixed_code.py
+          echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > fixed_logic.sh
 
       - name: "Trigger Executor with Mission"
         run: |
-          curl -L -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          curl -L -X POST \
+          -H "Authorization: Bearer ${{ secrets.PAT }}" \
           -H "Accept: application/vnd.github+json" \
           [https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches) \
           -d '{"event_type": "execute_task", "client_payload": {"goal": "10B_TRAINING_AND_YOLO"}}'
 
       - name: "Self-Renewal: Keep Leader Alive"
         run: |
-          curl -L -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          curl -L -X POST \
+          -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          -H "Accept: application/vnd.github+json" \
           [https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches](https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches) \
           -d '{"ref":"main"}'
