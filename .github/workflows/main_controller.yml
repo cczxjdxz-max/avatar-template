@@ -14,22 +14,23 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
 
-      - name: "Dispatch Smart Mission"
+      - name: "Dispatch Optimized Mission"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # المهمة الآن: التحقق من الكاش ثم البدء في تحليل العمق
-          # قمت بدمج أوامر التحميل والتشريح لتعمل فقط عند الحاجة
+          # المهمة: التحميل (عند الحاجة) -> التفكيك (عند الحاجة) -> استخراج القيم
           SMART_MISSION="if [ ! -f 'game.apk' ]; then \
-            echo 'Cache empty. Downloading...'; \
+            echo 'Downloading APK...'; \
             curl -L -o game.apk 'https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk'; \
           fi; \
           sudo apt-get update && sudo apt-get install -y apktool binutils; \
           if [ ! -d 'data/extracted' ]; then \
+            echo 'Decompiling APK...'; \
             apktool d game.apk -o data/extracted --force; \
           fi; \
-          echo 'Starting Deep Analysis...'; \
-          find data/extracted/lib -name '*.so' -exec strings {} + | grep -iE 'Damage|Recoil|Spread|Speed' > physics_report.txt"
+          echo 'Extracting Physics Report...'; \
+          find data/extracted/lib -name '*.so' -exec strings {} + | grep -iE 'Damage|Recoil|Spread|Speed' | sort | uniq > physics_report.txt; \
+          echo 'Mission Accomplished.'"
 
           curl -L -X POST -H "Authorization: Bearer $PAT" \
           -H "Accept: application/vnd.github+json" \
@@ -38,13 +39,3 @@ jobs:
             \"event_type\": \"execute_task\",
             \"client_payload\": { \"commands\": \"$SMART_MISSION\" }
           }"
-
-      # خطوة "التصحيح الذاتي" إذا أرسل المنفذ إشارة فشل
-      - name: "Auto-Fix via Gemini"
-        if: github.event_type == 'executor_failed'
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          ERROR_LOG: ${{ github.event.client_payload.log }}
-        run: |
-          echo "Gemini is analyzing the error: $ERROR_LOG"
-          # هنا يمكن إضافة سكربت Python لمخاطبة API جيمني وتعديل الـ YAML
