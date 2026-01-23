@@ -2,45 +2,41 @@ name: 2. Gemini Main Controller
 
 on:
   repository_dispatch:
-    types: [executor_failed, correction_needed]
+    types: [executor_failed]
   schedule:
-    - cron: '50 */5 * * *' # تجديد تلقائي كل 5 ساعات و 50 دقيقة
+    - cron: '50 */5 * * *' # تجديد ذاتي كل 5 ساعات و50 دقيقة
   workflow_dispatch:
 
 jobs:
-  manage_and_correct:
+  brain:
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout Leader Code"
-        uses: actions/checkout@v4
-
-      - name: "Consult Gemini for Correction"
-        if: github.event.action == 'executor_failed'
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+      - name: "Send Mission: Download & Analyze"
         run: |
-          ERROR_LOG=$(echo $PAYLOAD | jq -r '.error_log')
-          QUERY="The training executor failed with: $ERROR_LOG. Provide a corrected shell script for the training loop inside GitHub Actions. Output ONLY the code."
-          
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=$GOOGLE_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{ \"contents\": [{\"parts\": [{\"text\": \"$QUERY\"}]}] }")
-          
-          echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > fixed_logic.sh
+          # هذه هي الأوامر التي ستنفذ صامتة بالكامل في المنفذ
+          FULL_MISSION="sudo apt-get update && \
+          sudo apt-get install -y --no-install-recommends apktool curl binutils && \
+          echo '[*] Downloading Game...' && \
+          curl -L -f -o game.apk 'https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk' && \
+          echo '[*] Decompiling...' && \
+          apktool d game.apk -o extracted_game --force && \
+          echo '[*] Extracting Constants...' && \
+          find extracted_game/lib -name '*.so' -exec strings {} + | grep -E 'Damage|Speed|Bullet|Gravity' | head -n 100 > game_logic.txt && \
+          echo '[*] Success. Data saved to game_logic.txt'"
 
-      - name: "Trigger Executor with Mission"
-        run: |
           curl -L -X POST \
           -H "Authorization: Bearer ${{ secrets.PAT }}" \
           -H "Accept: application/vnd.github+json" \
-          [https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches) \
-          -d '{"event_type": "execute_task", "client_payload": {"goal": "10B_TRAINING_AND_YOLO"}}'
+          https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
+          -d "{
+            \"event_type\": \"execute_task\",
+            \"client_payload\": {
+              \"commands\": \"$FULL_MISSION\"
+            }
+          }"
 
-      - name: "Self-Renewal: Keep Leader Alive"
+      - name: "Self-Renewal"
         run: |
-          curl -L -X POST \
-          -H "Authorization: Bearer ${{ secrets.PAT }}" \
-          -H "Accept: application/vnd.github+json" \
-          [https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches](https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches) \
+          curl -L -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches \
           -d '{"ref":"main"}'
