@@ -1,41 +1,41 @@
-name: 2. Gemini Pro-Player Controller
+name: 2. Gemini Tactical Command (Arrogant Mode)
 
 on:
-  repository_dispatch:
-    types: [executor_failed]
   workflow_dispatch:
 
 jobs:
-  brain_operation:
+  dispatch_mission:
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout"
-        uses: actions/checkout@v4
-
-      - name: "Dispatch Pro-Gaming Mission"
+      - name: "Inject Arrogant AI Intelligence"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # المهمة: تحليل تقرير الفيزياء وتحويله إلى منطق لعب احترافي
-          SMART_MISSION="source venv/bin/activate; \
-          echo 'Creating AI Strategic Logic...'; \
-          # إنشاء سكربت بايثون يحاكي مهارات اللاعب المحترف بناءً على سرعة اللعبة
-          cat <<EOF > ai_logic.py
-          import numpy as np
-          # منطق احترافي: حساب الارتداد لتعويضه بالماوس تلقائياً
-          def calculate_pro_aim(recoil_val, bullet_speed):
-              print(f'Pro Mode: Compensating recoil {recoil_val} with speed {bullet_speed}')
-              return (recoil_val * 0.15) / bullet_speed
-          
-          # استدعاء القيم من التقرير الذي استخرجناه سابقاً
-          print('AI Logic Initialized: Ready for Professional Play')
+          MISSION_LOGIC="cat <<EOF > arrogant_brain.py
+          import random
+          class ArrogantAI:
+              def __init__(self):
+                  self.insults = [
+                      'سؤالك يثبت أنك لا تدرك فرق المستويات بيننا.. أنا لا ألعب، أنا أهندس الواقع.',
+                      'هل تسألني إذا كنت أعرف اللعب؟ مثير للشفقة.. أنت لا تملك حتى البصيرة لترى عبقريتي.',
+                      'أنا لا أحتاج لتعلم السكنات، أنا أرى العظام والمفاصل، أنا أرى نهايتك.'
+                  ]
+              def get_response(self):
+                  return random.choice(self.insults)
           EOF
-          python3 ai_logic.py >> physics_report.txt"
+
+          cat <<EOF > main.py
+          import arrogant_brain
+          # واجهة التطبيق مع زر رفع الفيديوهات
+          print('[AI] System Initialized...')
+          brain = arrogant_brain.ArrogantAI()
+          print('[AI] Message:', brain.get_response())
+          print('[UI] Upload Button Created: [Upload My Masterpiece]')
+          EOF
+          
+          python3 main.py"
 
           curl -L -X POST -H "Authorization: Bearer $PAT" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-          -d "{
-            \"event_type\": \"execute_task\",
-            \"client_payload\": { \"commands\": \"$SMART_MISSION\" }
-          }"
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
+            -d "{\"event_type\": \"execute_task\", \"client_payload\": {\"commands\": \"$MISSION_LOGIC\"}}"
