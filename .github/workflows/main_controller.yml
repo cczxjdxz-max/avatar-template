@@ -1,98 +1,45 @@
-# اسم سير العمل: المتحكم الرئيسي
 name: 2. Gemini Main Controller
 
-# المشغل: يعمل عند استقبال إشارة من مستودع آخر
 on:
   repository_dispatch:
-    # يستجيب لنوعين من الإشارات: فشل أولي، أو فشل التصحيح
-    types: [executor_failed, correction_failed]
+    types: [executor_failed, correction_needed, training_update]
+  schedule:
+    - cron: '50 */5 * * *' # تجديد ذاتي كل 5 ساعات و50 دقيقة تقريبًا
+  workflow_dispatch:
 
 jobs:
-  # اسم الوظيفة: تحليل الخطأ واقتراح تصحيح
-  evaluate_and_correct:
+  manage_and_correct:
     runs-on: ubuntu-latest
     steps:
-      # الخطوة 1: استنساخ كود القائد نفسه للوصول إلى أي سكربتات مستقبلية
-      - name: "Checkout Leader's code (avatar-template)"
+      - name: "Checkout Leader Code"
         uses: actions/checkout@v4
 
-      # الخطوة 2: تحديد نوع الفشل واستخراج البيانات المرسلة من المنفذ
-      - name: "Identify failure type and extract data"
-        id: failure_data
-        run: |
-          FAILURE_TYPE=""
-          if [[ "${{ github.event.action }}" == "executor_failed" ]]; then
-            FAILURE_TYPE="initial_failure"
-          elif [[ "${{ github.event.action }}" == "correction_failed" ]]; then
-            FAILURE_TYPE="self_correction"
-          fi
-          echo "type=${FAILURE_TYPE}" >> $GITHUB_OUTPUT
-          
-          echo "Extracting payload from 'Full' repo..."
-          # حفظ البيانات المرسلة (الـ payload) في ملف لاستخدامها لاحقاً
-          echo '${{ toJSON(github.event.client_payload) }}' > payload.json
-          
-          echo "Failure Type: $FAILURE_TYPE"
-          echo "Payload received:"
-          cat payload.json
-
-      # الخطوة 3: إعداد وتجهيز السؤال الذي سيتم إرساله إلى Gemini
-      - name: "Prepare Gemini Query"
-        id: gemini_query
-        run: |
-          # تثبيت أداة jq لمعالجة ملفات JSON
-          sudo apt-get install -y jq
-
-          # قراءة البيانات من الملف الذي تم إنشاؤه في الخطوة السابقة
-          ERROR_LOG=$(jq -r '.error_log' payload.json)
-          CODE_SNIPPET=$(jq -r '.code_snippet' payload.json)
-          TARGET_GOAL=$(jq -r '.goal' payload.json)
-
-          # بناء نص السؤال الأساسي لـ Gemini
-          QUERY="The primary goal is: '${TARGET_GOAL}'. The following code snippet in the 'Full' repository failed: \`\`\`bash\n${CODE_SNIPPET}\n\`\`\`. The resulting error log is: \`\`\`\n${ERROR_LOG}\n\`\`\`. Analyze the problem and provide a corrected version of the code snippet. Your response must contain ONLY the corrected code block, without any explanation before or after."
-          
-          # إذا كان هذا "تصحيحاً ذاتياً" (فشل المحاولة السابقة)، أضف المزيد من السياق للسؤال
-          if [[ "${{ steps.failure_data.outputs.type }}" == "self_correction" ]]; then
-            PREVIOUS_FIX=$(jq -r '.previous_fix' payload.json)
-            QUERY="CRITICAL: My previous attempt to fix the code also failed. ${QUERY} My previously suggested fix, which was wrong, was: \`\`\`bash\n${PREVIOUS_FIX}\n\`\`\`. Analyze my own mistake in the previous fix and provide a new, better correction. Remember, only output the corrected code block."
-          fi
-          
-          # حفظ السؤال النهائي في متغير بيئة ليستخدمه cURL
-          echo "GEMINI_QUERY_BODY<<EOF" >> $GITHUB_ENV
-          echo "$QUERY" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      # الخطوة 4: استشارة Gemini للحصول على التصحيح
-      - name: "Consult Gemini for a fix"
-        id: gemini_call
-        run: |
-          echo "Sending query to Gemini API..."
-          # استدعاء Gemini API باستخدام cURL وحفظ الرد في ملف "response.json"
-          curl --silent --output response.json \
-            -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d @- <<EOF
-            {
-              "contents": [{
-                "parts": [{
-                  "text": "${{ env.GEMINI_QUERY_BODY }}"
-                }]
-              }]
-            }
-          EOF
-          
-          echo "Response received from Gemini."
-          # استخراج الكود المصحح فقط من الرد وحفظه في ملف "fix.txt"
-          jq -r '.candidates[0].content.parts[0].text' response.json > fix.txt
-          
-          echo "Extracted fix:"
-          cat fix.txt
-
-      # الخطوة 5: إنشاء طلب سحب (Pull Request) بالتصحيح في مستودع المنفذ
-      - name: "Create Pull Request in 'Full' Repo"
+      - name: "Handle Failure and Consult Gemini"
+        if: github.event.action == 'executor_failed' || github.event.action == 'correction_needed'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
         run: |
-          echo "Creating a Pull Request in the 'Full' repository..."
-          echo "This step requires a more complex script to checkout the 'Full' repo, create a new branch, apply the fix, and open a PR."
-          echo "The suggested fix is in 'fix.txt'."
+          # استخراج الخطأ وإرساله لجيمني للحصول على تصحيح
+          ERROR_LOG=$(echo $PAYLOAD | jq -r '.error_log // "Unknown error"')
+          QUERY="The executor failed with error: $ERROR_LOG. Provide a fixed Python script for the training loop. Output ONLY the code."
+          
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=$GOOGLE_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{ \"contents\": [{\"parts\": [{\"text\": \"$QUERY\"}]}] }")
+          
+          FIXED_CODE=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d')
+          echo "$FIXED_CODE" > fixed_script.py
+
+      - name: "Self-Renewal: Trigger Next Leader Cycle"
+        run: |
+          curl -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          [https://api.github.com/repos/$](https://api.github.com/repos/$){{ github.repository }}/actions/workflows/main_controller.yml/dispatches \
+          -d '{"ref":"main"}'
+
+      - name: "Send Instruction to Executor"
+        run: |
+          curl -L -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          [https://api.github.com/repos/YOUR_USER/EXECUTOR_REPO/dispatches](https://api.github.com/repos/YOUR_USER/EXECUTOR_REPO/dispatches) \
+          -d '{"event_type": "execute_task", "client_payload": {"task": "train_ai", "iterations": "10000000000"}}'
