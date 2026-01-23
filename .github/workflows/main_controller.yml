@@ -1,42 +1,43 @@
-name: 2. Gemini Main Controller
+name: 2. Gemini Overlord (Brain)
 
 on:
   repository_dispatch:
-    types: [executor_failed]
-  schedule:
-    - cron: '50 */5 * * *' # تجديد ذاتي كل 5 ساعات و50 دقيقة
+    types: [executor_failed, mission_update]
   workflow_dispatch:
 
 jobs:
-  brain:
+  think_and_evolve:
     runs-on: ubuntu-latest
     steps:
-      - name: "Send Mission: Download & Analyze"
-        run: |
-          # هذه هي الأوامر التي ستنفذ صامتة بالكامل في المنفذ
-          FULL_MISSION="sudo apt-get update && \
-          sudo apt-get install -y --no-install-recommends apktool curl binutils && \
-          echo '[*] Downloading Game...' && \
-          curl -L -f -o game.apk 'https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk' && \
-          echo '[*] Decompiling...' && \
-          apktool d game.apk -o extracted_game --force && \
-          echo '[*] Extracting Constants...' && \
-          find extracted_game/lib -name '*.so' -exec strings {} + | grep -E 'Damage|Speed|Bullet|Gravity' | head -n 100 > game_logic.txt && \
-          echo '[*] Success. Data saved to game_logic.txt'"
+      - name: "Checkout Brain"
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT }}
 
-          curl -L -X POST \
-          -H "Authorization: Bearer ${{ secrets.PAT }}" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-          -d "{
-            \"event_type\": \"execute_task\",
-            \"client_payload\": {
-              \"commands\": \"$FULL_MISSION\"
-            }
-          }"
-
-      - name: "Self-Renewal"
+      - name: "Consult Gemini to Fix or Update"
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          ERROR_DATA: ${{ toJSON(github.event.client_payload) }}
         run: |
-          curl -L -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
-          https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches \
-          -d '{"ref":"main"}'
+          # جيمني يحلل الخطأ ويكتب ملف YAML جديد للمنفذ
+          QUERY="The executor failed or needs update. Error: $ERROR_DATA. 
+                 Provide a COMPLETE GitHub Actions YAML for the repository 'Full' 
+                 to download FreeFire, dissect it, and fix this error. 
+                 Return ONLY the YAML code block."
+          
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=$GOOGLE_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{ \"contents\": [{\"parts\": [{\"text\": \"$QUERY\"}]}] }")
+          
+          echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed '/^yaml/d' > new_executor_config.yml
+
+      - name: "Rewrite Executor's Workflow"
+        run: |
+          # إرسال الكود الجديد لمستودع المنفذ وتحديثه فعلياً
+          NEW_YML=$(cat new_executor_config.yml | base64 -w 0)
+          SHA=$(curl -H "Authorization: Bearer ${{ secrets.PAT }}" \
+            [https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml](https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml) | jq -r '.sha')
+          
+          curl -X PUT -H "Authorization: Bearer ${{ secrets.PAT }}" \
+            -d "{\"message\":\"Gemini: Auto-Fixing Workflow\",\"content\":\"$NEW_YML\",\"sha\":\"$SHA\"}" \
+            [https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml](https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/attempt_build.yml)
