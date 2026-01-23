@@ -2,9 +2,9 @@ name: 2. Gemini Main Controller
 
 on:
   repository_dispatch:
-    types: [executor_failed, correction_needed, training_update]
+    types: [executor_failed, correction_needed]
   schedule:
-    - cron: '50 */5 * * *' # تجديد ذاتي كل 5 ساعات و50 دقيقة تقريبًا
+    - cron: '50 */5 * * *' # تجديد تلقائي كل 5 ساعات و 50 دقيقة
   workflow_dispatch:
 
 jobs:
@@ -14,32 +14,31 @@ jobs:
       - name: "Checkout Leader Code"
         uses: actions/checkout@v4
 
-      - name: "Handle Failure and Consult Gemini"
-        if: github.event.action == 'executor_failed' || github.event.action == 'correction_needed'
+      - name: "Consult Gemini for Correction"
+        if: github.event.action == 'executor_failed'
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           PAYLOAD: ${{ toJSON(github.event.client_payload) }}
         run: |
-          # استخراج الخطأ وإرساله لجيمني للحصول على تصحيح
-          ERROR_LOG=$(echo $PAYLOAD | jq -r '.error_log // "Unknown error"')
-          QUERY="The executor failed with error: $ERROR_LOG. Provide a fixed Python script for the training loop. Output ONLY the code."
+          ERROR_LOG=$(echo $PAYLOAD | jq -r '.error_log')
+          QUERY="The training executor failed with: $ERROR_LOG. Provide a corrected Python script for the RL training loop. Output ONLY the code block."
           
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=$GOOGLE_API_KEY" \
             -H "Content-Type: application/json" \
             -d "{ \"contents\": [{\"parts\": [{\"text\": \"$QUERY\"}]}] }")
           
-          FIXED_CODE=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d')
-          echo "$FIXED_CODE" > fixed_script.py
+          # استخراج الكود فقط وتخزينه لإرساله
+          echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > fixed_code.py
 
-      - name: "Self-Renewal: Trigger Next Leader Cycle"
-        run: |
-          curl -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          [https://api.github.com/repos/$](https://api.github.com/repos/$){{ github.repository }}/actions/workflows/main_controller.yml/dispatches \
-          -d '{"ref":"main"}'
-
-      - name: "Send Instruction to Executor"
+      - name: "Trigger Executor with Mission"
         run: |
           curl -L -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
-          [https://api.github.com/repos/YOUR_USER/EXECUTOR_REPO/dispatches](https://api.github.com/repos/YOUR_USER/EXECUTOR_REPO/dispatches) \
-          -d '{"event_type": "execute_task", "client_payload": {"task": "train_ai", "iterations": "10000000000"}}'
+          -H "Accept: application/vnd.github+json" \
+          [https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches) \
+          -d '{"event_type": "execute_task", "client_payload": {"goal": "10B_TRAINING_AND_YOLO"}}'
+
+      - name: "Self-Renewal: Keep Leader Alive"
+        run: |
+          curl -L -X POST -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          [https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches](https://api.github.com/repos/cczxjdxz-max/avatar-template/actions/workflows/main_controller.yml/dispatches) \
+          -d '{"ref":"main"}'
