@@ -1,44 +1,51 @@
-name: 1. The Sovereign Manager
+name: 1. The Sovereign Overseer
 on:
   workflow_dispatch:
   repository_dispatch:
-    types: [executor_failed, continue_mission]
+    types: [wake_up_call, executor_failed]
 
 jobs:
-  wipe_and_build:
+  manage_and_fix:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: "1. Force Access to Executor Repo"
+      - name: "1. Accessing Sovereign Realm"
         uses: actions/checkout@v4
         with:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
-          ref: main 
 
-      - name: "2. Precision Deploy (No Syntax Error)"
+      - name: "2. Gemini IQ 250: Absolute Engine Reverse Engineering"
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          rm -rf .github/workflows
-          mkdir -p .github/workflows
+          ERROR_LOG="${{ github.event.client_payload.error || 'System Normal: Continue Deconstruction' }}"
+          # برومبت يمنع جيمني من الخروج عن النص البرمجي ويجبره على بناء محاكاة مطابقة لمحرك اللعبة
+          PROMPT="Act as Lelouch IQ 250. Perform reverse engineering on Free Fire physics. Create a Python script named 'core_logic.py' that: 1. Simulates 1v12 with exact game constants. 2. Uses pure math for Aim-Lock. 3. Supports all Arabic dialects. 4. Saves progress to 'checkpoint.json'. Fix this error: $ERROR_LOG. Output ONLY raw python code, no markdown."
           
-          # نستخدم printf مع تغيير ترميز علامة الدولار لضمان عدم اكتشافها من محرك GitHub
-          printf "name: 2. The Executor\non:\n  workflow_dispatch:\n    inputs:\n      manual_command:\n        description: 'Enter command'\n        default: 'echo Manual Success'\n  repository_dispatch:\n    types: [execute_mission]\n\njobs:\n  execute:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: 'Active Simulation'\n        run: |\n          \${{ github.event.client_payload.commands || github.event.inputs.manual_command }}\n" > .github/workflows/executor.yml
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
+               -H "Content-Type: application/json" \
+               -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
+          
+          # استخراج الكود البرمجي النقي
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
 
-      - name: "3. Commit & Force Push"
+      - name: "3. Force Sync & Persistence"
         run: |
-          git config --global user.name "Sovereign Manager"
-          git config --global user.email "manager@sovereign.ai"
-          git add .github/workflows/executor.yml
-          git commit -m "System Purified: Manual Trigger Injected" || echo "Clean"
+          git config --global user.name "Lelouch-Overseer"
+          git config --global user.email "overseer@britannia.ai"
+          git add core_logic.py
+          git commit -m "Engine Synced: Deconstruction Phase Active" || echo "No changes"
           git push origin main --force
+          echo "Entering Deep Sleep for 7 minutes..."
+          sleep 420
 
-      - name: "4. Trigger First Clean Simulation"
+      - name: "4. Wake Up the Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          sleep 10
-          MISSION="echo 'Vision Started: High-Precision Simulation...' && python3 -c 'import random; print(f\"Accuracy: {random.uniform(99.5, 100):.2f}%\")'"
-          JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
           curl -L -X POST -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
-               https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-               -d "$JSON"
+               [https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches) \
+               -d '{"event_type": "continue_mission"}'
