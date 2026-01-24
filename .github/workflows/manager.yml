@@ -21,7 +21,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           ERROR_DATA="${{ github.event.client_payload.error_log }}"
-          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. Context: 200m zone, Desert Eagle, M1887. History: System reported $ERROR_DATA. Task: Refine the YAML logic to process 12 Trillion simulations. Output ONLY raw YAML."
+          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. Context: 200m zone. Task: Refine YAML to process 12 Trillion simulations. Output ONLY raw YAML."
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -30,27 +30,30 @@ jobs:
           CLEAN_CODE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' | sed 's/```yaml//g; s/```//g' | sed '/^$/d')
 
           mkdir -p .github/workflows
+          
           if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
             echo "Deploying Sovereign Core Template..."
-            # تم إصلاح التضارب هنا باستخدام الهروب البرمجي للعلامات
-            echo "name: 2. The Executor" > .github/workflows/executor.yml
-            echo "on: [workflow_dispatch, repository_dispatch]" >> .github/workflows/executor.yml
-            echo "jobs:" >> .github/workflows/executor.yml
-            echo "  execute:" >> .github/workflows/executor.yml
-            echo "    runs-on: ubuntu-latest" >> .github/workflows/executor.yml
-            echo "    steps:" >> .github/workflows/executor.yml
-            echo "      - uses: actions/checkout@v4" >> .github/workflows/executor.yml
-            echo "      - run: \${{ github.event.client_payload.commands }}" >> .github/workflows/executor.yml
+            # استخدام ملف مؤقت لتجنب مشاكل علامات الاقتباس
+            cat << 'EOF' > .github/workflows/executor.yml
+name: 2. The Executor
+on: [workflow_dispatch, repository_dispatch]
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ${{ github.event.client_payload.commands }}
+EOF
           else
             echo "$CLEAN_CODE" > .github/workflows/executor.yml
           fi
 
-      - name: "3. Inject Vision into Executor"
+      - name: "3. Force Push to Executor"
         run: |
           git config --global user.name "Sovereign Manager"
           git config --global user.email "manager@sovereign.ai"
           git add .github/workflows/executor.yml
-          git commit -m "Evolution Cycle: Implementing IQ 250 Vision" || echo "Optimized"
+          git commit -m "Evolution Cycle: Implementing IQ 250 Vision" || echo "No changes"
           git push origin main --force
 
       - name: "4. Trigger 12T Mission"
@@ -58,7 +61,7 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: |
           sleep 10
-          MISSION="echo 'Initiating 12T Simulation...' && python3 -c 'import random; print(f\"Cycle: {random.randint(1, 10**12)}\")' && sleep 5"
+          MISSION="echo 'Initiating 12T Simulation...' && python3 -c 'import random; print(f\"Cycle: {random.randint(1, 10**12)}\")'"
           JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
           curl -L -X POST -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
