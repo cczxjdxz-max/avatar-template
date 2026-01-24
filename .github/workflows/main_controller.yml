@@ -1,34 +1,36 @@
-name: 3. Oracle APK Architect & Dispatcher
+name: 3. Oracle Ultimate Architect
 on:
   workflow_dispatch:
 
 jobs:
-  dispatch_build:
+  architect_mission:
     runs-on: ubuntu-latest
     steps:
-      - name: "Gemini: Architecting UI & Chat"
+      - name: "Gemini: Designing Pure Logic"
         run: |
-          # طلب كود واجهة الدردشة والخدمة من جيمني
+          # طلب الكود البرمجي الخام فقط من جيمني
           RESPONSE=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
                -X POST \
                -d '{
                  "contents": [{
                    "parts": [{
-                     "text": "Write a complete Android AccessibilityService in Java with a Floating Chat Window (Overlay). The chat must interact with a binary file 'oracle_mastery.dat'. Include narcissism in the UI strings and use AccessibilityService for drag gestures."
+                     "text": "Write ONLY the Java code for OracleService.java. Start directly with 'package com.oracle.sovereign;'. Include AccessibilityService for drag gestures and a Floating Chat UI that reads 'oracle_mastery.dat'. No explanations, no markdown."
                    }]
                  }]
                }')
-          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' > OracleFinalCode.java
+          
+          # تنظيف الكود من أي زوائد
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed 's/```java//g' | sed 's/```//g' > OracleFinalCode.java
 
-      - name: "Sending To Factory"
+      - name: "Dispatch to Factory"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          REPO_FULL_NAME="cczxjdxz-max/Full"
+          # تجهيز الكود للإرسال
           CODE_CONTENT=$(cat OracleFinalCode.java | jq -sRr @json)
           
           curl -L -X POST -H "Authorization: Bearer $PAT" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/$REPO_FULL_NAME/dispatches \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
             -d "{\"event_type\": \"build_apk\", \"client_payload\": {\"java_code\": $CODE_CONTENT}}"
