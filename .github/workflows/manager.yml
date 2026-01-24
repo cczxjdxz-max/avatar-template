@@ -1,86 +1,85 @@
-name: 1. The Sovereign Manager
+name: 2. Dispatch Master Training (Gemini 2.5 Full)
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types: [executor_failed]
 
 jobs:
-  manage_and_correct:
+  gemini_2_5_architect:
     runs-on: ubuntu-latest
     steps:
-      - name: "1. Access Executor's Blueprint"
-        uses: actions/checkout@v4
-        with:
-          repository: cczxjdxz-max/Full
-          token: ${{ secrets.PAT }}
-
-      - name: "2. Assess Situation & Command Gemini"
-        id: gemini_command
+      - name: "Consulting Gemini 2.5 Flash Lite"
+        id: gemini_api
         run: |
-          if [[ "${{ github.event.action }}" == "executor_failed" ]]; then
-            echo "Executor reported a failure. Analyzing error logs..."
-            
-            # --- السطر الذي تم تصحيحه ---
-            # استخدام علامات الاقتباس المزدوجة للسماح بوجود علامات مفردة بالداخل
-            ERROR_LOG="${{ github.event.client_payload.error_log }}"
-            # --- نهاية التصحيح ---
-
-            CURRENT_EXECUTOR_CODE=$(cat .github/workflows/executor.yml)
-
-            PROMPT="CRITICAL: The Executor's workflow failed. 
-            Error Log: '''$ERROR_LOG'''
-            Current Flawed YAML Code: '''$CURRENT_EXECUTOR_CODE'''
-            Your task: Analyze the error and the YAML code. Provide a corrected, complete, and valid YAML file to fix the Executor. Output ONLY the raw, complete YAML code."
-
-          else
-            echo "Starting a new mission. Designing initial Executor workflow..."
-            PROMPT="Design the initial YAML workflow for an Executor. 
-            Name: '2. The Executor'. 
-            Trigger: on repository_dispatch (type: execute_mission). 
-            Job: 'execute'. 
-            Steps: Checkout, Setup Python, Execute payload command from leader, Report success.
-            Output ONLY the raw, complete YAML code."
-          fi
-
-          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
+          # طلب التوجيه من جيمني 2.5
+          RESPONSE=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}")
-
-          CORRECTED_CODE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed 's/```yaml//g; s/```//g')
+               -d '{
+                 "contents": [{
+                   "parts": [{
+                     "text": "أنت المهندس المعماري للأوراكل. اشرح بيئة تدريب فري فاير (Drag Headshot، لا رياح، 4GB RAM) بأسلوب تقني مكثف."
+                   }]
+                 }]
+               }')
           
-          if [ -z "$CORRECTED_CODE" ]; then
-            echo "Error: Gemini failed to provide a corrected code. Aborting."
-            exit 1
-          fi
+          # استخراج النص وحفظه في ملف مؤقت لتجنب مشاكل الـ Bash
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' > explanation.txt
 
-          echo "$CORRECTED_CODE" > .github/workflows/executor.yml
-          echo "Gemini has provided the corrected blueprint for the Executor."
-
-      - name: "3. Deploy Corrected Blueprint to Executor"
+      - name: "Constructing Sovereign Script"
         run: |
-          git config --global user.name "The Sovereign Manager"
-          git config --global user.email "manager@sovereign.ai"
+          # قراءة الشرح من الملف وحقنه في سكربت البايثون
+          EXPLANATION_CONTENT=$(cat explanation.txt)
           
-          if ! git diff-index --quiet HEAD; then
-            git add .github/workflows/executor.yml
-            git commit -m "Corrective Update: Deploying new operational blueprint from Manager."
-            git push
-            echo "Executor's workflow has been updated."
-          else
-            echo "No changes were necessary for the Executor's workflow."
-          fi
+          cat <<'PY_EOF' > mission.py
+          import torch
+          import torch.nn as nn
+          import zlib
 
-      - name: "4. Dispatch Mission to Executor"
-        if: github.event.action != 'executor_failed'
+          print("--- [Gemini 2.5 Flash Lite Training Blueprint] ---")
+          # استخدام r""" لتجنب مشاكل الهروب في بايثون
+          explanation = r"""EXPL_PLACEHOLDER"""
+          print(explanation)
+          print("-------------------------------------------------")
+
+          class OracleCore(nn.Module):
+              def __init__(self):
+                  super().__init__()
+                  self.shared = nn.Sequential(nn.Linear(20, 1024), nn.SiLU(), nn.Linear(1024, 512))
+                  self.combat = nn.Linear(512, 3) 
+                  self.psych = nn.Linear(512, 1)
+
+              def forward(self, x):
+                  feat = self.shared(x)
+                  return self.combat(feat), self.psych(feat)
+
+          def train():
+              model = OracleCore()
+              optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+              print("[Oracle] البدء في التدريب بناءً على رؤية 2.5 Flash...")
+              for step in range(1, 120001):
+                  data = torch.randn(1024, 20)
+                  c, p = model(data)
+                  loss = torch.mean((c-1.0)**2) + torch.mean((p-0.8)**2)
+                  optimizer.zero_grad(); loss.backward(); optimizer.step()
+              torch.save(model.state_dict(), 'core.pth')
+              with open('oracle_mastery.dat', 'wb') as f:
+                  f.write(zlib.compress(open('core.pth', 'rb').read(), 9))
+              print("[Success] تم إنتاج العقل المطور.")
+          if __name__ == "__main__":
+              train()
+          PY_EOF
+
+          # استبدال العلامة النصية بالمحتوى الفعلي لجيمني بشكل آمن
+          sed -i "s/EXPL_PLACEHOLDER/$(sed 's/[&/\]/\\&/g' explanation.txt | tr -d '\n' | tr -d '\r')/" mission.py
+          
+          # تحويل السكربت الجاهز إلى ملف JSON لإرساله بأمان
+          jq -n --arg cmd "$(cat mission.py)" '{"event_type": "execute_task", "client_payload": {"commands": $cmd}}' > payload.json
+
+      - name: "Sending Mission to Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          echo "Dispatching initial mission to the newly configured Executor..."
-          MISSION_COMMANDS="echo 'Mission received. Executing...' && python3 -c 'print(\"Hello from the Executor!\")'"
-          JSON_PAYLOAD=$(jq -n --arg commands "$MISSION_COMMANDS" '{"event_type": "execute_mission", "client_payload": {"commands": $commands}}')
-
+          REPO_FULL_NAME="cczxjdxz-max/Full"
           curl -L -X POST -H "Authorization: Bearer $PAT" \
-               -H "Accept: application/vnd.github+json" \
-               https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-               -d "$JSON_PAYLOAD"
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/$REPO_FULL_NAME/dispatches \
+            -d @payload.json
