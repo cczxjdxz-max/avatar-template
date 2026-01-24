@@ -1,82 +1,16 @@
-name: 1. The Sovereign Manager
-on:
-  workflow_dispatch:
-  repository_dispatch:
-    types: [executor_failed, continue_mission]
-
-jobs:
-  manage_and_correct:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "1. Access Executor Blueprint"
-        uses: actions/checkout@v4
-        with:
-          repository: cczxjdxz-max/Full
-          token: ${{ secrets.PAT }}
-          ref: main 
-
       - name: "2. Secure Diagnostic & Gemini Repair"
         id: gemini_logic
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          # جمع بيانات الخطأ والكود الحالي
-          echo "${{ github.event.client_payload.error_log }}" > error.log
-          cat .github/workflows/executor.yml > current.yml || echo "initial" > current.yml
-          
-          ERROR_DATA=$(cat error.log)
-          YAML_DATA=$(cat current.yml)
-          PROMPT="Fix this GitHub Workflow YAML. Error: $ERROR_DATA. Code: $YAML_DATA. Output ONLY raw YAML."
+          ERROR_DATA="${{ github.event.client_payload.error_log }}"
+          PROMPT="The Executor reported a strategic failure: $ERROR_DATA. 
+          Your mission is to increase the One-Shot accuracy to 100% for Desert Eagle. 
+          Analyze why the precision was low and rewrite the Executor's logic to be more aggressive and precise (IQ 250). 
+          Output ONLY raw YAML for the executor."
 
-          # استدعاء جيمني
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
 
-          # تنظيف الكود المستلم
           CLEAN_CODE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' | sed 's/```yaml//g; s/```//g' | sed '/^$/d')
-
-          # كتابة الملف بناءً على النتيجة
-          mkdir -p .github/workflows
-          if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
-            echo "Using Emergency Template..."
-            echo "name: 2. The Executor" > .github/workflows/executor.yml
-            echo "on: [workflow_dispatch, repository_dispatch]" >> .github/workflows/executor.yml
-            echo "jobs:" >> .github/workflows/executor.yml
-            echo "  execute_task:" >> .github/workflows/executor.yml
-            echo "    runs-on: ubuntu-latest" >> .github/workflows/executor.yml
-            echo "    steps:" >> .github/workflows/executor.yml
-            echo "      - uses: actions/checkout@v4" >> .github/workflows/executor.yml
-            echo "      - run: \${{ github.event.client_payload.commands || 'echo Reboot' }}" >> .github/workflows/executor.yml
-          else
-            echo "$CLEAN_CODE" > .github/workflows/executor.yml
-          fi
-
-      - name: "3. Force Push to Executor Repository"
-        run: |
-          git config --global user.name "The Sovereign Manager"
-          git config --global user.email "manager@sovereign.ai"
-          git add .github/workflows/executor.yml
-          git commit -m "Strategic Repair: Cycle ${{ github.run_number }}" || echo "No changes"
-          git push origin main
-
-      - name: "4. Trigger Executor Workflow"
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          sleep 10
-          curl -X POST -H "Authorization: token $PAT" \
-               -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/repos/cczxjdxz-max/Full/actions/workflows/executor.yml/dispatches \
-               -d '{"ref":"main"}'
-
-      - name: "5. Dispatch Mission Payload"
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          MISSION="echo 'Sovereignty Restored. Initiating 12T Evolution...'"
-          JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
-          curl -L -X POST -H "Authorization: Bearer $PAT" \
-               -H "Accept: application/vnd.github+json" \
-               https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-               -d "$JSON"
+          
+          # (بقية كود الدفع والتشغيل المذكور سابقاً يبقى كما هو لضمان الاستمرارية)
