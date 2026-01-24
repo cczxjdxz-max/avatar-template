@@ -13,26 +13,26 @@ jobs:
         with:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
-          # --- الإضافة الجديدة ---
-          # تأكد من أننا نعمل دائماً على الفرع الرئيسي للمنفذ
           ref: main 
-
-      # ... باقي الكود يبقى كما هو بدون أي تغيير ...
 
       - name: "2. Secure Diagnostic & Gemini Repair"
         id: gemini_logic
         run: |
-          # (الكود هنا لم يتغير)
           echo "${{ github.event.client_payload.error_log }}" > error_report.log
           cat .github/workflows/executor.yml > last_working.yml || echo "initial" > last_working.yml
+          
           ERROR_DATA=$(cat error_report.log)
           CURRENT_CODE=$(cat last_working.yml)
           PROMPT="Fix this GitHub Workflow YAML. Error: $ERROR_DATA. Code: $CURRENT_CODE. Output ONLY raw YAML."
+
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
+
           CLEAN_CODE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' | sed 's/```yaml//g; s/```//g' | sed '/^$/d')
+
           if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
+            mkdir -p .github/workflows
             cat <<EOF > .github/workflows/executor.yml
 name: 2. The Executor
 on:
@@ -44,7 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: \${{ github.event.client_payload.commands || 'echo No commands' }}
+      - name: Dynamic Execution
+        run: \${{ github.event.client_payload.commands || 'echo System Rebooted' }}
 EOF
           else
             echo "$CLEAN_CODE" > .github/workflows/executor.yml
@@ -52,15 +53,12 @@ EOF
 
       - name: "3. Force Push to Executor Repository"
         run: |
-          git config --global user.name "Sovereign Manager"
+          git config --global user.name "The Sovereign Manager"
           git config --global user.email "manager@sovereign.ai"
           git add .github/workflows/executor.yml
           git commit -m "Strategic Repair: Cycle ${{ github.run_number }}" || echo "No changes"
-          # --- الإضافة الجديدة ---
-          # تأكد من أننا ندفع إلى الفرع الرئيسي
           git push origin main
 
-      # ... باقي الكود يبقى كما هو ...
       - name: "4. Wait for GitHub Sync"
         run: sleep 10
 
@@ -68,7 +66,6 @@ EOF
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          echo "Force-starting the Executor..."
           curl -X POST -H "Authorization: token $PAT" \
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/cczxjdxz-max/Full/actions/workflows/executor.yml/dispatches \
