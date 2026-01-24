@@ -8,28 +8,29 @@ jobs:
     steps:
       - name: "Gemini: Designing Pure Logic"
         run: |
-          # طلب الكود البرمجي الخام فقط من جيمني
+          # تعريف الطلب في متغير لمنع أخطاء الـ Bash
+          PROMPT="Write ONLY the Java code for OracleService.java. Start directly with 'package com.oracle.sovereign;'. Include AccessibilityService for drag gestures and a Floating Chat UI that reads 'oracle_mastery.dat'. No explanations, no markdown."
+          
+          # إرسال الطلب باستخدام المتغير
           RESPONSE=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
                -X POST \
-               -d '{
-                 "contents": [{
-                   "parts": [{
-                     "text": "Write ONLY the Java code for OracleService.java. Start directly with 'package com.oracle.sovereign;'. Include AccessibilityService for drag gestures and a Floating Chat UI that reads 'oracle_mastery.dat'. No explanations, no markdown."
+               -d "{
+                 \"contents\": [{
+                   \"parts\": [{
+                     \"text\": \"$PROMPT\"
                    }]
                  }]
-               }')
+               }")
           
-          # تنظيف الكود من أي زوائد
+          # استخراج الكود وتنظيفه
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed 's/```java//g' | sed 's/```//g' > OracleFinalCode.java
 
       - name: "Dispatch to Factory"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # تجهيز الكود للإرسال
           CODE_CONTENT=$(cat OracleFinalCode.java | jq -sRr @json)
-          
           curl -L -X POST -H "Authorization: Bearer $PAT" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${{ github.repository }}/dispatches \
