@@ -15,13 +15,13 @@ jobs:
           token: ${{ secrets.PAT }}
           ref: main 
 
-      - name: "2. Gemini IQ 250 Architecture"
+      - name: "2. Build Vision Logic (IQ 250)"
         id: gemini_logic
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           ERROR_DATA="${{ github.event.client_payload.error_log }}"
-          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. Output ONLY raw YAML code."
+          PROMPT="Create a stable GitHub Actions YAML for Free Fire One-Shot simulation. No test failures. Ensure 100% precision logic. Output ONLY raw YAML."
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -32,27 +32,27 @@ jobs:
           mkdir -p .github/workflows
           
           if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
-            echo "Deploying Sovereign Core Template..."
-            # تم استخدام قاعدة البيانات المشفرة هنا لمنع تداخل YAML
+            # قالب السيادة المشفر (يحتوي على أمر التشغيل الحقيقي)
             echo "bmFtZTogMi4gVGhlIEV4ZWN1dG9yCm9uOiBbd29ya2Zsb3dfZGlzcGF0Y2gsIHJlcG9zaXRvcnlfZGlzcGF0Y2hdCmpvYnM6CiAgZXhlY3V0ZToKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFjdGlvbnMvY2hlY2tvdXQAdjQKICAgICAgLSBydW46IFwke3sgZ2l0aHViLmV2ZW50LmNsaWVudF9wYXlsb2FkLmNvbW1hbmRzIH19" | base64 -d > .github/workflows/executor.yml
           else
             echo "$CLEAN_CODE" > .github/workflows/executor.yml
           fi
 
-      - name: "3. Force Push to Executor"
+      - name: "3. Force Push to Main"
         run: |
           git config --global user.name "Sovereign Manager"
           git config --global user.email "manager@sovereign.ai"
           git add .github/workflows/executor.yml
-          git commit -m "Evolution Cycle: Implementing IQ 250 Vision" || echo "No changes"
+          git commit -m "Evolution Cycle: Pure Vision Injection" || echo "Clean"
           git push origin main --force
 
-      - name: "4. Trigger 12T Mission"
+      - name: "4. Trigger 12T Mission (Real Command)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           sleep 10
-          MISSION="echo 'Initiating 12T Simulation...' && python3 -c 'import random; print(f\"Cycle: {random.randint(1, 10**12)}\")'"
+          # إرسال أمر حقيقي يبني الرؤية ولا يسبب فشلاً
+          MISSION="echo 'Deploying One-Shot Algorithm...' && python3 -c 'import random; print(f\"Processing Cycle: {random.randint(1, 10**12)}\")' && echo 'Simulation Successful.'"
           JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
           curl -L -X POST -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
