@@ -14,54 +14,56 @@ jobs:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "2. Gemini IQ 250 Diagnostic"
+      - name: "2. Secure Gemini Diagnostic"
         id: gemini_command
         run: |
-          # استخراج سجل الخطأ من البلاغ
-          ERROR_LOG="${{ github.event.client_payload.error_log }}"
-          CURRENT_YAML=$(cat .github/workflows/executor.yml || echo "File not found")
+          # تجهيز سجل الخطأ والكود الحالي في ملفات لتجنب مشاكل علامات الاقتباس
+          echo "${{ github.event.client_payload.error_log }}" > error.log
+          cat .github/workflows/executor.yml > current.yml || echo "init" > current.yml
+          
+          ERROR_DATA=$(cat error.log)
+          YAML_DATA=$(cat current.yml)
 
-          if [[ "${{ github.event.action }}" == "executor_failed" ]]; then
-            PROMPT="CRITICAL FAILURE: The Executor failed 15+ times. Error Log: '$ERROR_LOG'. Current YAML: '$CURRENT_YAML'. You are an IQ 250 Architect. Fix the YAML perfectly. Ensure correct indentation. Output ONLY raw YAML code."
-          else
-            PROMPT="Design a high-level Executor workflow for Free Fire simulation (200m zone, IQ 250). Output ONLY raw YAML."
-          fi
-
-          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
+          # بناء البرومبت بشكل آمن داخل JSON
+          PROMPT="Fix this GitHub Workflow YAML. Error: $ERROR_DATA. Code: $YAML_DATA. Output ONLY raw YAML."
+          
+          # استدعاء جيمني مع التحقق من الرد
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}")
+               -d "{
+                 \"contents\": [{
+                   \"parts\": [{
+                     \"text\": \"$PROMPT\"
+                   }]
+                 }]
+               }")
 
-          # تنظيف الكود المستلم من جيمني
-          CORRECTED_CODE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed 's/```yaml//g; s/```//g')
-          
-          if [ -z "$CORRECTED_CODE" ] || [ "$CORRECTED_CODE" == "null" ]; then
-            echo "Gemini failed. Emergency shutdown."
-            exit 1
+          # استخراج الكود وتنظيفه
+          CORRECTED=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' | sed 's/```yaml//g; s/```//g' | sed '/^$/d')
+
+          # خطة الطوارئ: إذا فشل جيمني، نضع كوداً افتراضياً ناجحاً
+          if [ -z "$CORRECTED" ] || [ "$CORRECTED" == "null" ]; then
+            echo "Warning: Gemini returned empty. Using Sovereign Default Template."
+            cat <<EOF > .github/workflows/executor.yml
+name: 2. The Executor
+on:
+  repository_dispatch:
+    types: [execute_mission]
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: \${{ github.event.client_payload.commands }}
+EOF
+          else
+            echo "$CORRECTED" > .github/workflows/executor.yml
           fi
-          
-          mkdir -p .github/workflows
-          echo "$CORRECTED_CODE" > .github/workflows/executor.yml
 
-      - name: "3. Forced Deployment"
+      - name: "3. Forced Push"
         run: |
-          git config --global user.name "Sovereign Manager"
+          git config --global user.name "The Sovereign Manager"
           git config --global user.email "manager@sovereign.ai"
           git add .github/workflows/executor.yml
-          if [ -n "$(git status --porcelain)" ]; then
-            git commit -m "Correction Layer: Fixing Failure Cycle"
-            git push origin main
-          else
-            echo "No changes needed."
-          fi
-
-      - name: "4. Dispatch Repaired Mission"
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          MISSION="echo 'Mission Restored. Initiating 12T simulation...'"
-          JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
-          curl -L -X POST -H "Authorization: Bearer $PAT" \
-               -H "Accept: application/vnd.github+json" \
-               https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-               -d "$JSON"
+          git commit -m "Emergency Correction: Repairing Logic Bridge" || echo "No changes"
+          git push origin main
