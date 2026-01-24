@@ -15,41 +15,20 @@ jobs:
           token: ${{ secrets.PAT }}
           ref: main 
 
-      - name: "2. Deploy Executor with Manual Control"
+      - name: "2. Precision Deploy (No Syntax Error)"
         run: |
           rm -rf .github/workflows
           mkdir -p .github/workflows
           
-          # كتابة كود المنفذ مع دعم زر "Run Workflow" اليدوي
-          cat << 'EOF' > .github/workflows/executor.yml
-name: 2. The Executor
-on:
-  workflow_dispatch:
-    inputs:
-      manual_command:
-        description: 'Enter command to run'
-        default: 'echo Manual Success'
-        required: false
-  repository_dispatch:
-    types: [execute_mission]
-
-jobs:
-  execute:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: "Active Simulation"
-        run: |
-          # يختار الأمر القادم من القائد، أو الأمر المكتوب يدوياً في الزر
-          ${{ github.event.client_payload.commands || github.event.inputs.manual_command }}
-EOF
+          # نستخدم printf مع تغيير ترميز علامة الدولار لضمان عدم اكتشافها من محرك GitHub
+          printf "name: 2. The Executor\non:\n  workflow_dispatch:\n    inputs:\n      manual_command:\n        description: 'Enter command'\n        default: 'echo Manual Success'\n  repository_dispatch:\n    types: [execute_mission]\n\njobs:\n  execute:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: 'Active Simulation'\n        run: |\n          \${{ github.event.client_payload.commands || github.event.inputs.manual_command }}\n" > .github/workflows/executor.yml
 
       - name: "3. Commit & Force Push"
         run: |
           git config --global user.name "Sovereign Manager"
           git config --global user.email "manager@sovereign.ai"
           git add .github/workflows/executor.yml
-          git commit -m "System Purified: Manual Trigger Added" || echo "Clean"
+          git commit -m "System Purified: Manual Trigger Injected" || echo "Clean"
           git push origin main --force
 
       - name: "4. Trigger First Clean Simulation"
