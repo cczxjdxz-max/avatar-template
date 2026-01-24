@@ -9,35 +9,39 @@ jobs:
       - name: "Consulting Gemini 2.5 Flash Lite"
         id: gemini_api
         run: |
-          # تنفيذ طلب الـ curl الذي طلبته بالضبط لاستشارة الموديل 2.5
+          # طلب التوجيه من جيمني 2.5
           RESPONSE=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
                -X POST \
                -d '{
                  "contents": [{
                    "parts": [{
-                     "text": "أنت الآن المهندس المعماري للأوراكل في فري فاير. اشرح بيئة التدريب بناءً على البيانات المستخرجة، ركز على الـ Drag Headshot وفيزياء اللعبة بدون رياح لـ 4GB RAM."
+                     "text": "أنت المهندس المعماري للأوراكل. اشرح بيئة تدريب فري فاير (Drag Headshot، لا رياح، 4GB RAM) بناءً على البيانات المستخرجة."
                    }]
                  }]
                }')
           
-          # استخراج النص الناتج من جيمني 2.5
+          # استخراج النص
           EXPLANATION=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text')
-          # تنظيف النص من أي رموز قد تعطل السكربت
-          CLEAN_EXPLANATION=$(echo "$EXPLANATION" | tr -d '"' | tr -d "'")
-          echo "explanation=$CLEAN_EXPLANATION" >> $GITHUB_ENV
+          
+          # حل مشكلة النص متعدد الأسطر لـ GitHub Env
+          echo "explanation<<EOF" >> $GITHUB_ENV
+          echo "$EXPLANATION" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: "Constructing Sovereign Script"
         run: |
-          # بناء السكربت الذي سيتم إرساله للمنفذ
-          SCRIPT_BODY=$(cat <<EOF
+          # بناء السكربت الذي سيتم حقنه في المنفذ
+          cat <<'PY_EOF' > mission.py
           import torch
           import torch.nn as nn
           import zlib
+          import time
 
-          print("--- [Gemini 2.5 Flash Lite Instructions] ---")
-          print("${{ env.explanation }}")
-          print("--------------------------------------------")
+          print("--- [Gemini 2.5 Flash Lite Training Blueprint] ---")
+          # سيتم حقن الشرح هنا بواسطة القائد
+          print("""${{ env.explanation }}""")
+          print("-------------------------------------------------")
 
           class OracleCore(nn.Module):
               def __init__(self):
@@ -55,28 +59,37 @@ jobs:
               optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
               print("[Oracle] البدء في تدريب الـ 3 تريليون مواجهة بناءً على رؤية 2.5 Flash...")
               
-              # محاكاة التدريب المكثف
-              for _ in range(120000):
+              for step in range(1, 120001):
                   data = torch.randn(1024, 20)
                   c, p = model(data)
-                  loss = torch.mean(c**2) + torch.mean(p**2)
+                  loss = torch.mean((c-1.0)**2) + torch.mean((p-0.8)**2)
                   optimizer.zero_grad(); loss.backward(); optimizer.step()
+                  if step % 40000 == 0:
+                      print(f"[Progress] {step} steps completed.")
 
               torch.save(model.state_dict(), 'core.pth')
               with open('oracle_mastery.dat', 'wb') as f:
                   f.write(zlib.compress(open('core.pth', 'rb').read(), 9))
-              print("[Success] تم إنتاج العقل المطور.")
-          train()
-          EOF
-          )
-          echo "payload=$SCRIPT_BODY" >> $GITHUB_ENV
+              print("[Success] تم إنتاج العقل المطور بنجاح.")
 
-      - name: "Sending Intelligence to Executor"
+          if __name__ == "__main__":
+              train()
+          PY_EOF
+          
+          # تحويل السكربت إلى متغير لإرساله
+          SCRIPT_CONTENT=$(cat mission.py)
+          echo "payload<<EOF" >> $GITHUB_ENV
+          echo "$SCRIPT_CONTENT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: "Sending Mission to Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
+          # تأكد من استبدال المسار بمسار مستودعك الصحيح
+          REPO_FULL_NAME="cczxjdxz-max/Full"
           JSON_PAYLOAD=$(jq -n --arg commands "${{ env.payload }}" '{"event_type": "execute_task", "client_payload": {"commands": $commands}}')
           curl -L -X POST -H "Authorization: Bearer $PAT" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            https://api.github.com/repos/$REPO_FULL_NAME/dispatches \
             -d "$JSON_PAYLOAD"
