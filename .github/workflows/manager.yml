@@ -21,7 +21,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           ERROR_DATA="${{ github.event.client_payload.error_log }}"
-          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. Context: 200m zone. Task: Refine YAML to process 12 Trillion simulations. Output ONLY raw YAML."
+          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. Output ONLY raw YAML code."
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -33,17 +33,8 @@ jobs:
           
           if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
             echo "Deploying Sovereign Core Template..."
-            # استخدام ملف مؤقت لتجنب مشاكل علامات الاقتباس
-            cat << 'EOF' > .github/workflows/executor.yml
-name: 2. The Executor
-on: [workflow_dispatch, repository_dispatch]
-jobs:
-  execute:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: ${{ github.event.client_payload.commands }}
-EOF
+            # تم استخدام قاعدة البيانات المشفرة هنا لمنع تداخل YAML
+            echo "bmFtZTogMi4gVGhlIEV4ZWN1dG9yCm9uOiBbd29ya2Zsb3dfZGlzcGF0Y2gsIHJlcG9zaXRvcnlfZGlzcGF0Y2hdCmpvYnM6CiAgZXhlY3V0ZToKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFjdGlvbnMvY2hlY2tvdXQAdjQKICAgICAgLSBydW46IFwke3sgZ2l0aHViLmV2ZW50LmNsaWVudF9wYXlsb2FkLmNvbW1hbmRzIH19" | base64 -d > .github/workflows/executor.yml
           else
             echo "$CLEAN_CODE" > .github/workflows/executor.yml
           fi
