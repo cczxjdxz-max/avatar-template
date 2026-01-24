@@ -20,13 +20,11 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          ERROR_LOG="${{ github.event.client_payload.error || 'System Normal: Continue Deconstruction' }}"
-          PROMPT="Act as Lelouch IQ 250. Perform reverse engineering on Free Fire physics. Create a Python script named 'core_logic.py' that: 1. Simulates 1v12 with exact game constants. 2. Uses pure math for Aim-Lock. 3. Supports all Arabic dialects. 4. Saves progress to 'checkpoint.json'. Fix this error: $ERROR_LOG. Output ONLY raw python code, no markdown."
-          
+          ERROR_LOG="${{ github.event.client_payload.error || 'System Normal' }}"
+          PROMPT="Act as Lelouch IQ 250. Create core_logic.py: 12T cycles, Free Fire Reverse Engineering, Aim-Lock Math, Arabic Dialects. Fix: $ERROR_LOG. Output ONLY python code."
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
-          
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
 
       - name: "3. Force Sync & Persistence"
@@ -34,17 +32,17 @@ jobs:
           git config --global user.name "Lelouch-Overseer"
           git config --global user.email "overseer@britannia.ai"
           git add core_logic.py
-          git commit -m "Engine Synced: Deconstruction Phase Active" || echo "No changes"
+          git commit -m "Engine Synced" || echo "No changes"
           git push origin main --force
-          echo "Entering Sleep for 5 minutes (300s)..."
+          echo "Sleeping for 300 seconds (5 minutes)..."
           sleep 300
 
       - name: "4. Wake Up the Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          curl -X POST \
+          URL="[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)"
+          curl -X POST "$URL" \
                -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
-               [https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches) \
                -d '{"event_type": "continue_mission"}'
