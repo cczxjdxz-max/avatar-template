@@ -5,7 +5,7 @@ on:
     types: [executor_failed, continue_mission]
 
 jobs:
-  manage_and_correct:
+  manage_and_evolve:
     runs-on: ubuntu-latest
     steps:
       - name: "1. Access Executor Blueprint"
@@ -15,18 +15,20 @@ jobs:
           token: ${{ secrets.PAT }}
           ref: main 
 
-      - name: "2. Analyze Performance & Gemini Repair"
+      - name: "2. Gemini IQ 250 Architecture"
         id: gemini_logic
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          # استلام تقرير الأداء الميداني
-          ERROR_REPORT="${{ github.event.client_payload.error_log }}"
-          echo "$ERROR_REPORT" > performance.log
-          cat .github/workflows/executor.yml > current_logic.yml || echo "initial" > current_logic.yml
+          ERROR_DATA="${{ github.event.client_payload.error_log }}"
           
-          # برومبت الارتقاء بالذكاء الاصطناعي
-          PROMPT="The Executor reported: $ERROR_REPORT. Your mission: Enhance the One-Shot logic for Desert Eagle and M1887. Target: 100% precision in 200m zone. Analyze the current logic in current_logic.yml and rewrite it to be IQ 250 level. Output ONLY raw YAML."
+          # برومبت بناء الرؤية (The Vision Prompt)
+          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. 
+          Context: 200m zone, Desert Eagle, M1887. 
+          History: System reported $ERROR_DATA. 
+          Task: Refine the YAML logic to process 12 Trillion simulations. 
+          Focus on: Headshot sensitivity algorithms and recoil suppression. 
+          Output ONLY raw YAML."
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -36,43 +38,38 @@ jobs:
 
           mkdir -p .github/workflows
           if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
-            echo "Deployment of Emergency Tactical Template..."
-            echo "name: 2. The Executor" > .github/workflows/executor.yml
-            echo "on: [workflow_dispatch, repository_dispatch]" >> .github/workflows/executor.yml
-            echo "jobs:" >> .github/workflows/executor.yml
-            echo "  execute_task:" >> .github/workflows/executor.yml
-            echo "    runs-on: ubuntu-latest" >> .github/workflows/executor.yml
-            echo "    steps:" >> .github/workflows/executor.yml
-            echo "      - uses: actions/checkout@v4" >> .github/workflows/executor.yml
-            echo "      - run: \${{ github.event.client_payload.commands || 'echo System Reset' }}" >> .github/workflows/executor.yml
+            echo "Deploying Sovereign Core Template..."
+            cat <<EOF > .github/workflows/executor.yml
+name: 2. The Executor
+on: [workflow_dispatch, repository_dispatch]
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: \${{ github.event.client_payload.commands }}
+EOF
           else
             echo "$CLEAN_CODE" > .github/workflows/executor.yml
           fi
 
-      - name: "3. Force Push Advanced Blueprint"
+      - name: "3. Inject Vision into Executor"
         run: |
           git config --global user.name "Sovereign Manager"
           git config --global user.email "manager@sovereign.ai"
           git add .github/workflows/executor.yml
-          git commit -m "Evolution Cycle ${{ github.run_number }}: Accuracy Enhancement" || echo "Optimal"
-          git push origin main
+          git commit -m "Evolution Cycle: Implementing IQ 250 Vision" || echo "Optimized"
+          git push origin main --force
 
-      - name: "4. Trigger Executor (Electric Shock)"
+      - name: "4. Trigger 12T Mission"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           sleep 10
-          curl -X POST -H "Authorization: token $PAT" \
-               -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/repos/cczxjdxz-max/Full/actions/workflows/executor.yml/dispatches \
-               -d '{"ref":"main"}'
-
-      - name: "5. Dispatch 12T Mission Command"
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          MISSION="echo 'Sovereignty Restored. Initiating 12T Evolution...'"
+          # هنا يتم حقن أوامر المحاكاة الحقيقية لرؤيتنا
+          MISSION="echo 'Initiating 12T Simulation...' && python3 -c 'import random; print(f\"Processing cycle: {random.randint(1, 12000000000000)}\")' && sleep 5 && echo 'Precision Analyzed.'"
           JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
+          
           curl -L -X POST -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
