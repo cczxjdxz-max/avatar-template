@@ -20,28 +20,30 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          ERROR_LOG="${{ github.event.client_payload.error || 'System Normal' }}"
-          PROMPT="Lelouch IQ 250: Generate core_logic.py for Free Fire Reverse Engineering, 12T cycles, Aim-Lock Math, Arabic Dialects. Fix: $ERROR_LOG. Output ONLY raw python code."
+          ERROR_LOG="${{ github.event.client_payload.error || 'SyntaxError: null is not defined' }}"
+          PROMPT="Act as Lelouch IQ 250. Target: core_logic.py for Free Fire Reverse Engineering. 12T cycles, Aim-Lock, Arabic. Requirement: Output ONLY raw Python code. NO JSON, NO markdown. Use 'None' instead of 'null'. Fix: $ERROR_LOG."
+          
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
-          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
+          
+          # استخراج النص وتطهيره من أي شوائب JSON أو Markdown
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed 's/null/None/g' > core_logic.py
 
       - name: "3. Force Sync & Persistence"
         run: |
           git config --global user.name "Lelouch-Overseer"
           git config --global user.email "overseer@britannia.ai"
           git add core_logic.py
-          git commit -m "Engine Synced: Deconstruction Active" || echo "No changes"
+          git commit -m "Engine Corrected: Null Filter Applied" || echo "Clean"
           git push origin main --force
-          echo "Waiting for 300 seconds (5 minutes) for stability..."
+          echo "Sleeping for 300 seconds (5 minutes)..."
           sleep 300
 
       - name: "4. Wake Up the Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # تقسيم الرابط يدوياً لكسر التنسيق التلقائي للمحررات
           PROTO="https://"
           HOST="api.github.com"
           PATH_URL="/repos/cczxjdxz-max/Full/dispatches"
