@@ -21,14 +21,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           ERROR_DATA="${{ github.event.client_payload.error_log }}"
-          
-          # برومبت بناء الرؤية (The Vision Prompt)
-          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. 
-          Context: 200m zone, Desert Eagle, M1887. 
-          History: System reported $ERROR_DATA. 
-          Task: Refine the YAML logic to process 12 Trillion simulations. 
-          Focus on: Headshot sensitivity algorithms and recoil suppression. 
-          Output ONLY raw YAML."
+          PROMPT="Architect a high-precision Executor for Free Fire One-Shot logic. Context: 200m zone, Desert Eagle, M1887. History: System reported $ERROR_DATA. Task: Refine the YAML logic to process 12 Trillion simulations. Output ONLY raw YAML."
 
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -39,16 +32,15 @@ jobs:
           mkdir -p .github/workflows
           if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
             echo "Deploying Sovereign Core Template..."
-            cat <<EOF > .github/workflows/executor.yml
-name: 2. The Executor
-on: [workflow_dispatch, repository_dispatch]
-jobs:
-  execute:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: \${{ github.event.client_payload.commands }}
-EOF
+            # تم إصلاح التضارب هنا باستخدام الهروب البرمجي للعلامات
+            echo "name: 2. The Executor" > .github/workflows/executor.yml
+            echo "on: [workflow_dispatch, repository_dispatch]" >> .github/workflows/executor.yml
+            echo "jobs:" >> .github/workflows/executor.yml
+            echo "  execute:" >> .github/workflows/executor.yml
+            echo "    runs-on: ubuntu-latest" >> .github/workflows/executor.yml
+            echo "    steps:" >> .github/workflows/executor.yml
+            echo "      - uses: actions/checkout@v4" >> .github/workflows/executor.yml
+            echo "      - run: \${{ github.event.client_payload.commands }}" >> .github/workflows/executor.yml
           else
             echo "$CLEAN_CODE" > .github/workflows/executor.yml
           fi
@@ -66,10 +58,8 @@ EOF
           PAT: ${{ secrets.PAT }}
         run: |
           sleep 10
-          # هنا يتم حقن أوامر المحاكاة الحقيقية لرؤيتنا
-          MISSION="echo 'Initiating 12T Simulation...' && python3 -c 'import random; print(f\"Processing cycle: {random.randint(1, 12000000000000)}\")' && sleep 5 && echo 'Precision Analyzed.'"
+          MISSION="echo 'Initiating 12T Simulation...' && python3 -c 'import random; print(f\"Cycle: {random.randint(1, 10**12)}\")' && sleep 5"
           JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
-          
           curl -L -X POST -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
