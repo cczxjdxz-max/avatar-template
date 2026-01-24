@@ -17,36 +17,37 @@ jobs:
 
       - name: "2. Secure Diagnostic & Gemini Repair"
         id: gemini_logic
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          echo "${{ github.event.client_payload.error_log }}" > error_report.log
-          cat .github/workflows/executor.yml > last_working.yml || echo "initial" > last_working.yml
+          # جمع بيانات الخطأ والكود الحالي
+          echo "${{ github.event.client_payload.error_log }}" > error.log
+          cat .github/workflows/executor.yml > current.yml || echo "initial" > current.yml
           
-          ERROR_DATA=$(cat error_report.log)
-          CURRENT_CODE=$(cat last_working.yml)
-          PROMPT="Fix this GitHub Workflow YAML. Error: $ERROR_DATA. Code: $CURRENT_CODE. Output ONLY raw YAML."
+          ERROR_DATA=$(cat error.log)
+          YAML_DATA=$(cat current.yml)
+          PROMPT="Fix this GitHub Workflow YAML. Error: $ERROR_DATA. Code: $YAML_DATA. Output ONLY raw YAML."
 
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
+          # استدعاء جيمني
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
 
+          # تنظيف الكود المستلم
           CLEAN_CODE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' | sed 's/```yaml//g; s/```//g' | sed '/^$/d')
 
+          # كتابة الملف بناءً على النتيجة
+          mkdir -p .github/workflows
           if [ -z "$CLEAN_CODE" ] || [ "$CLEAN_CODE" == "null" ]; then
-            mkdir -p .github/workflows
-            cat <<EOF > .github/workflows/executor.yml
-name: 2. The Executor
-on:
-  repository_dispatch:
-    types: [execute_mission]
-  workflow_dispatch:
-jobs:
-  execute_task:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Dynamic Execution
-        run: \${{ github.event.client_payload.commands || 'echo System Rebooted' }}
-EOF
+            echo "Using Emergency Template..."
+            echo "name: 2. The Executor" > .github/workflows/executor.yml
+            echo "on: [workflow_dispatch, repository_dispatch]" >> .github/workflows/executor.yml
+            echo "jobs:" >> .github/workflows/executor.yml
+            echo "  execute_task:" >> .github/workflows/executor.yml
+            echo "    runs-on: ubuntu-latest" >> .github/workflows/executor.yml
+            echo "    steps:" >> .github/workflows/executor.yml
+            echo "      - uses: actions/checkout@v4" >> .github/workflows/executor.yml
+            echo "      - run: \${{ github.event.client_payload.commands || 'echo Reboot' }}" >> .github/workflows/executor.yml
           else
             echo "$CLEAN_CODE" > .github/workflows/executor.yml
           fi
@@ -59,25 +60,23 @@ EOF
           git commit -m "Strategic Repair: Cycle ${{ github.run_number }}" || echo "No changes"
           git push origin main
 
-      - name: "4. Wait for GitHub Sync"
-        run: sleep 10
-
-      - name: "5. Trigger Executor Workflow Manually"
+      - name: "4. Trigger Executor Workflow"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
+          sleep 10
           curl -X POST -H "Authorization: token $PAT" \
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/cczxjdxz-max/Full/actions/workflows/executor.yml/dispatches \
                -d '{"ref":"main"}'
 
-      - name: "6. Dispatch Repaired Mission (Payload)"
+      - name: "5. Dispatch Mission Payload"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
           MISSION="echo 'Sovereignty Restored. Initiating 12T Evolution...'"
-          JSON_PAYLOAD=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
+          JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
           curl -L -X POST -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-               -d "$JSON_PAYLOAD"
+               -d "$JSON"
