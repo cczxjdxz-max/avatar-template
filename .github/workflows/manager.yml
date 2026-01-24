@@ -15,45 +15,50 @@ jobs:
           token: ${{ secrets.PAT }}
           ref: main 
 
-      - name: "2. Strategic Purge & Clean Deploy"
+      - name: "2. Deploy Executor with Manual Control"
         run: |
-          # التطهير: حذف مجلد الوورك فلو القديم بالكامل لمسح سطر (sudo apt-get) وأي مهمات فاشلة سابقة
           rm -rf .github/workflows
           mkdir -p .github/workflows
           
-          # إعادة البناء: كتابة ملف المنفذ النقي (executor.yml)
-          # نستخدم 'EOF' لمنع تداخل المتغيرات أثناء الكتابة
+          # كتابة كود المنفذ مع دعم زر "Run Workflow" اليدوي
           cat << 'EOF' > .github/workflows/executor.yml
 name: 2. The Executor
-on: [workflow_dispatch, repository_dispatch]
+on:
+  workflow_dispatch:
+    inputs:
+      manual_command:
+        description: 'Enter command to run'
+        default: 'echo Manual Success'
+        required: false
+  repository_dispatch:
+    types: [execute_mission]
+
 jobs:
   execute:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: "Active Simulation"
-        run: ${{ github.event.client_payload.commands }}
+        run: |
+          # يختار الأمر القادم من القائد، أو الأمر المكتوب يدوياً في الزر
+          ${{ github.event.client_payload.commands || github.event.inputs.manual_command }}
 EOF
 
-      - name: "3. Commit & Force Push Clean Slate"
+      - name: "3. Commit & Force Push"
         run: |
           git config --global user.name "Sovereign Manager"
           git config --global user.email "manager@sovereign.ai"
           git add .github/workflows/executor.yml
-          git commit -m "System Purified: IQ 250 Vision Deployed" || echo "System already pure"
-          # الدفع القسري لضمان مسح تاريخ المحاولات الفاشلة الـ 241
+          git commit -m "System Purified: Manual Trigger Added" || echo "Clean"
           git push origin main --force
 
       - name: "4. Trigger First Clean Simulation"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # انتظار بسيط ليتعرف نظام GitHub على الملف الجديد
           sleep 10
-          # إرسال مهمة بناء الرؤية الحقيقية (خوارزمية One-Shot ناجحة)
           MISSION="echo 'Vision Started: High-Precision Simulation...' && python3 -c 'import random; print(f\"Accuracy: {random.uniform(99.5, 100):.2f}%\")'"
           JSON=$(jq -n --arg cmd "$MISSION" '{"event_type": "execute_mission", "client_payload": {"commands": $cmd}}')
-          
           curl -L -X POST -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
