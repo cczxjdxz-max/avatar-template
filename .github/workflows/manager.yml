@@ -20,8 +20,8 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          ERROR_LOG="${{ github.event.client_payload.error || 'System Normal' }}"
-          PROMPT="Act as Lelouch IQ 250. Create core_logic.py: 12T cycles, Free Fire Reverse Engineering, Aim-Lock Math, Arabic Dialects. Fix: $ERROR_LOG. Output ONLY python code."
+          ERROR_LOG="${{ github.event.client_payload.error || 'Normal' }}"
+          PROMPT="Lelouch IQ 250: Generate core_logic.py for Free Fire Reverse Engineering, 12T cycles, Aim-Lock, Arabic. Fix: $ERROR_LOG. Raw Python only."
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
@@ -32,17 +32,21 @@ jobs:
           git config --global user.name "Lelouch-Overseer"
           git config --global user.email "overseer@britannia.ai"
           git add core_logic.py
-          git commit -m "Engine Synced" || echo "No changes"
+          git commit -m "Engine Synced" || echo "Clean"
           git push origin main --force
-          echo "Sleeping for 300 seconds (5 minutes)..."
+          echo "Sleeping 300s..."
           sleep 300
 
       - name: "4. Wake Up the Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          URL="[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)"
-          curl -X POST "$URL" \
+          # تفكيك الرابط لمنع التنسيق التلقائي المزعج
+          P1="[https://api.github.com](https://api.github.com)"
+          P2="/repos/cczxjdxz-max/Full/dispatches"
+          FINAL_URL="${P1}${P2}"
+          
+          curl -X POST "$FINAL_URL" \
                -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                -d '{"event_type": "continue_mission"}'
