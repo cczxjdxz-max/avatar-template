@@ -1,28 +1,50 @@
-name: 2. Dispatch Master Training
+name: 2. Dispatch Master Training (Gemini 2.5 Powered)
 on:
   workflow_dispatch:
 
 jobs:
-  dispatch_mission:
+  gemini_2_5_architect:
     runs-on: ubuntu-latest
     steps:
-      - name: "Constructing the Sovereign Script"
-        id: mission_logic
+      - name: "Consulting Gemini 2.5 Flash Lite"
+        id: gemini_api
         run: |
-          # هنا نضع السكربت الذي سيقوم المنفذ بتشغيله
-          SCRIPT_BODY=$(cat <<'EOF'
+          # تنفيذ طلب الـ curl الذي طلبته بالضبط لاستشارة الموديل 2.5
+          RESPONSE=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -d '{
+                 "contents": [{
+                   "parts": [{
+                     "text": "أنت الآن المهندس المعماري للأوراكل في فري فاير. اشرح بيئة التدريب بناءً على البيانات المستخرجة، ركز على الـ Drag Headshot وفيزياء اللعبة بدون رياح لـ 4GB RAM."
+                   }]
+                 }]
+               }')
+          
+          # استخراج النص الناتج من جيمني 2.5
+          EXPLANATION=$(echo $RESPONSE | jq -r '.candidates[0].content.parts[0].text')
+          # تنظيف النص من أي رموز قد تعطل السكربت
+          CLEAN_EXPLANATION=$(echo "$EXPLANATION" | tr -d '"' | tr -d "'")
+          echo "explanation=$CLEAN_EXPLANATION" >> $GITHUB_ENV
+
+      - name: "Constructing Sovereign Script"
+        run: |
+          # بناء السكربت الذي سيتم إرساله للمنفذ
+          SCRIPT_BODY=$(cat <<EOF
           import torch
           import torch.nn as nn
           import zlib
-          import time
 
-          # هندسة "النخاع الشوكي" المتوافقة مع 4GB RAM
+          print("--- [Gemini 2.5 Flash Lite Instructions] ---")
+          print("${{ env.explanation }}")
+          print("--------------------------------------------")
+
           class OracleCore(nn.Module):
               def __init__(self):
                   super().__init__()
                   self.shared = nn.Sequential(nn.Linear(20, 1024), nn.SiLU(), nn.Linear(1024, 512))
-                  self.combat = nn.Linear(512, 3) # [X, Y, Action]
-                  self.psych = nn.Linear(512, 1)  # تحليل نفسية الخصم
+                  self.combat = nn.Linear(512, 3) 
+                  self.psych = nn.Linear(512, 1)
 
               def forward(self, x):
                   feat = self.shared(x)
@@ -30,32 +52,26 @@ jobs:
 
           def train():
               model = OracleCore()
-              opt = torch.optim.AdamW(model.parameters(), lr=1e-5)
-              print("[Oracle] بَدْءُ صَهْرِ 3 تْرِيلِيُونَ مَوْقِفٍ فِي نَسِيجِ الرَّام...")
+              optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+              print("[Oracle] البدء في تدريب الـ 3 تريليون مواجهة بناءً على رؤية 2.5 Flash...")
               
-              start = time.time()
-              for step in range(1, 120001):
-                  data = torch.randn(1024, 20) # Batch ضخم لمحاكاة المليارات
-                  c_out, p_out = model(data)
-                  loss = torch.mean((c_out - 1.0)**2) + torch.mean((p_out - 0.7)**2)
-                  opt.zero_grad(); loss.backward(); opt.step()
-                  
-                  if step % 20000 == 0:
-                      print(f"[Step {step}] تَمَّ إِخْضَاعُ مِلْيَارَاتِ الاحْتِمَالاتِ. الْوَقْتُ: {(time.time()-start)/60:.2f} د")
+              # محاكاة التدريب المكثف
+              for _ in range(120000):
+                  data = torch.randn(1024, 20)
+                  c, p = model(data)
+                  loss = torch.mean(c**2) + torch.mean(p**2)
+                  optimizer.zero_grad(); loss.backward(); optimizer.step()
 
-              # الضغط الذري للملف
-              torch.save(model.state_dict(), 'raw_weights.pth')
-              with open('raw_weights.pth', 'rb') as f:
-                  with open('oracle_mastery.dat', 'wb') as out:
-                      out.write(zlib.compress(f.read(), level=9))
-              print("[Success] تَمَّ خَلْقُ الْعَقْلِ الْمُدَبِّرِ بنجاح.")
+              torch.save(model.state_dict(), 'core.pth')
+              with open('oracle_mastery.dat', 'wb') as f:
+                  f.write(zlib.compress(open('core.pth', 'rb').read(), 9))
+              print("[Success] تم إنتاج العقل المطور.")
           train()
           EOF
           )
-          # تصدير السكربت للمرحلة القادمة
           echo "payload=$SCRIPT_BODY" >> $GITHUB_ENV
 
-      - name: "Sending Mission to Executor"
+      - name: "Sending Intelligence to Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
