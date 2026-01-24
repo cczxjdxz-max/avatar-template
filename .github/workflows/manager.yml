@@ -21,14 +21,12 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           ERROR_LOG="${{ github.event.client_payload.error || 'System Normal: Continue Deconstruction' }}"
-          # برومبت يمنع جيمني من الخروج عن النص البرمجي ويجبره على بناء محاكاة مطابقة لمحرك اللعبة
           PROMPT="Act as Lelouch IQ 250. Perform reverse engineering on Free Fire physics. Create a Python script named 'core_logic.py' that: 1. Simulates 1v12 with exact game constants. 2. Uses pure math for Aim-Lock. 3. Supports all Arabic dialects. 4. Saves progress to 'checkpoint.json'. Fix this error: $ERROR_LOG. Output ONLY raw python code, no markdown."
           
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
           
-          # استخراج الكود البرمجي النقي
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
 
       - name: "3. Force Sync & Persistence"
@@ -38,14 +36,15 @@ jobs:
           git add core_logic.py
           git commit -m "Engine Synced: Deconstruction Phase Active" || echo "No changes"
           git push origin main --force
-          echo "Entering Deep Sleep for 7 minutes..."
-          sleep 420
+          echo "Entering Sleep for 5 minutes (300s)..."
+          sleep 300
 
       - name: "4. Wake Up the Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          curl -L -X POST -H "Authorization: Bearer $PAT" \
+          curl -X POST \
+               -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                [https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches) \
                -d '{"event_type": "continue_mission"}'
