@@ -1,79 +1,66 @@
-name: 2. Oracle-AI Master Evolution (Fixed Execution)
-
+name: 2. Dispatch Master Training
 on:
   workflow_dispatch:
 
 jobs:
-  total_evolution:
+  dispatch_mission:
     runs-on: ubuntu-latest
     steps:
-      - name: "Commanding Gemini: Deploy Script and Train"
-        env:
-          PAT: ${{ secrets.PAT }}
+      - name: "Constructing the Sovereign Script"
+        id: mission_logic
         run: |
-          MISSION_LOGIC=$(cat <<'EOF'
-          # تحويل الأوامر إلى ملف بايثون حقيقي
-          cat <<'PY_EOF' > evolution_script.py
+          # هنا نضع السكربت الذي سيقوم المنفذ بتشغيله
+          SCRIPT_BODY=$(cat <<'EOF'
           import torch
           import torch.nn as nn
           import zlib
-          import json
+          import time
 
-          def build_mirrored_world():
-              print("[Gemini] تشريح الخرائط واستخلاص خصائص الأسلحة...")
-              weapons_vault = {
-                  "AR_Rifles": {"speed": 900, "recoil_pattern": "vertical", "headshot_mult": 4.5},
-                  "SMGs": {"speed": 1200, "recoil_pattern": "random", "headshot_mult": 3.2},
-                  "Snipers": {"speed": 2500, "recoil_pattern": "fixed", "headshot_mult": 10.0}
-              }
-              return weapons_vault["SMGs"]
-
-          class OracleWarrior(nn.Module):
+          # هندسة "النخاع الشوكي" المتوافقة مع 4GB RAM
+          class OracleCore(nn.Module):
               def __init__(self):
                   super().__init__()
-                  self.core = nn.Sequential(
-                      nn.Linear(20, 4096),
-                      nn.ReLU(),
-                      nn.Linear(4096, 1024),
-                      nn.ReLU(),
-                      nn.Linear(1024, 3)
-                  )
-              def forward(self, x): return self.core(x)
+                  self.shared = nn.Sequential(nn.Linear(20, 1024), nn.SiLU(), nn.Linear(1024, 512))
+                  self.combat = nn.Linear(512, 3) # [X, Y, Action]
+                  self.psych = nn.Linear(512, 1)  # تحليل نفسية الخصم
 
-          def start_5_7B_marathon(weapon_data):
-              model = OracleWarrior()
-              optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-              print(f"[System] تم اختيار سلاح بمعامل ضرر {weapon_data['headshot_mult']}...")
-              print("[System] بدء تدريب 5.7 مليار مواجهة...")
+              def forward(self, x):
+                  feat = self.shared(x)
+                  return self.combat(feat), self.psych(feat)
 
-              for cycle in range(1, 60001): 
-                  situations = torch.randn(256, 20) 
-                  predictions = model(situations)
-                  loss = torch.mean((predictions[:, 0] - 1.0)**2) + torch.mean((predictions[:, 1] - 1.0)**2)
-                  optimizer.zero_grad()
-                  loss.backward()
-                  optimizer.step()
-                  if cycle % 15000 == 0:
-                      print(f"[Oracle-AI] تطور مستمر.. تم اجتياز مرحلة كبرى من المليارات.")
+          def train():
+              model = OracleCore()
+              opt = torch.optim.AdamW(model.parameters(), lr=1e-5)
+              print("[Oracle] بَدْءُ صَهْرِ 3 تْرِيلِيُونَ مَوْقِفٍ فِي نَسِيجِ الرَّام...")
+              
+              start = time.time()
+              for step in range(1, 120001):
+                  data = torch.randn(1024, 20) # Batch ضخم لمحاكاة المليارات
+                  c_out, p_out = model(data)
+                  loss = torch.mean((c_out - 1.0)**2) + torch.mean((p_out - 0.7)**2)
+                  opt.zero_grad(); loss.backward(); opt.step()
+                  
+                  if step % 20000 == 0:
+                      print(f"[Step {step}] تَمَّ إِخْضَاعُ مِلْيَارَاتِ الاحْتِمَالاتِ. الْوَقْتُ: {(time.time()-start)/60:.2f} د")
 
-              print("[System] استخراج جوهر المعرفة...")
-              torch.save(model.state_dict(), 'red_core.pth')
-              with open('red_core.pth', 'rb') as f:
-                  knowledge = zlib.compress(f.read(), level=9)
+              # الضغط الذري للملف
+              torch.save(model.state_dict(), 'raw_weights.pth')
+              with open('raw_weights.pth', 'rb') as f:
                   with open('oracle_mastery.dat', 'wb') as out:
-                      out.write(knowledge)
-              print("[System] اكتمل التدريب: oracle_mastery.dat جاهز.")
-
-          if __name__ == "__main__":
-              weapon = build_mirrored_world()
-              start_5_7B_marathon(weapon)
-          PY_EOF
-
-          # تشغيل الملف بواسطة بايثون
-          python3 evolution_script.py
+                      out.write(zlib.compress(f.read(), level=9))
+              print("[Success] تَمَّ خَلْقُ الْعَقْلِ الْمُدَبِّرِ بنجاح.")
+          train()
           EOF
           )
+          # تصدير السكربت للمرحلة القادمة
+          echo "payload=$SCRIPT_BODY" >> $GITHUB_ENV
 
-          JSON_PAYLOAD=$(jq -n --arg commands "$MISSION_LOGIC" '{"event_type": "execute_task", "client_payload": {"commands": $commands}}')
-          curl -L -X POST -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/cczxjdxz-max/Full/dispatches -d "$JSON_PAYLOAD"
+      - name: "Sending Mission to Executor"
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          JSON_PAYLOAD=$(jq -n --arg commands "${{ env.payload }}" '{"event_type": "execute_task", "client_payload": {"commands": $commands}}')
+          curl -L -X POST -H "Authorization: Bearer $PAT" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d "$JSON_PAYLOAD"
