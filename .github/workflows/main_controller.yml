@@ -1,44 +1,36 @@
-name: 2. Dispatch Master Training (Gemini 2.5 Full)
+name: 2. Dispatch Master Training (Fast Track)
 on:
   workflow_dispatch:
 
 jobs:
-  gemini_2_5_architect:
+  gemini_architect:
     runs-on: ubuntu-latest
     steps:
       - name: "Consulting Gemini 2.5 Flash Lite"
-        id: gemini_api
         run: |
-          # طلب التوجيه من جيمني 2.5
           RESPONSE=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
                -H "Content-Type: application/json" \
                -X POST \
                -d '{
                  "contents": [{
                    "parts": [{
-                     "text": "أنت المهندس المعماري للأوراكل. اشرح بيئة تدريب فري فاير (Drag Headshot، لا رياح، 4GB RAM) بأسلوب تقني مكثف."
+                     "text": "اشرح بيئة تدريب فري فاير (Drag Headshot، لا رياح، 4GB RAM) بأسلوب تقني مكثف لبناء نموذج عصبوني."
                    }]
                  }]
                }')
-          
-          # استخراج النص وحفظه في ملف مؤقت لتجنب مشاكل الـ Bash
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' > explanation.txt
 
-      - name: "Constructing Sovereign Script"
+      - name: "Constructing Fast-Track Script"
         run: |
-          # قراءة الشرح من الملف وحقنه في سكربت البايثون
-          EXPLANATION_CONTENT=$(cat explanation.txt)
-          
           cat <<'PY_EOF' > mission.py
           import torch
           import torch.nn as nn
           import zlib
+          import time
 
-          print("--- [Gemini 2.5 Flash Lite Training Blueprint] ---")
-          # استخدام r""" لتجنب مشاكل الهروب في بايثون
-          explanation = r"""EXPL_PLACEHOLDER"""
-          print(explanation)
-          print("-------------------------------------------------")
+          print("--- [Gemini 2.5 Fast Training Blueprint] ---")
+          with open('explanation.txt', 'r') as f: print(f.read())
+          print("--------------------------------------------")
 
           class OracleCore(nn.Module):
               def __init__(self):
@@ -53,28 +45,32 @@ jobs:
 
           def train():
               model = OracleCore()
-              optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
-              print("[Oracle] البدء في التدريب بناءً على رؤية 2.5 Flash...")
-              for step in range(1, 120001):
+              # رفع معدل التعلم لتسريع الصهر لـ 15 دقيقة
+              optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4)
+              print("[Oracle] بَدْءُ الصَّهْرِ السَّرِيعِ (40,000 خُطْوَةٍ مُكثَّفَةٍ)...")
+              
+              for step in range(1, 40001):
                   data = torch.randn(1024, 20)
                   c, p = model(data)
                   loss = torch.mean((c-1.0)**2) + torch.mean((p-0.8)**2)
                   optimizer.zero_grad(); loss.backward(); optimizer.step()
+                  if step % 10000 == 0:
+                      print(f"[Sync] تَمَّ إِتْمَامُ {step} خُطْوَةٍ.")
+
               torch.save(model.state_dict(), 'core.pth')
               with open('oracle_mastery.dat', 'wb') as f:
                   f.write(zlib.compress(open('core.pth', 'rb').read(), 9))
-              print("[Success] تم إنتاج العقل المطور.")
+              print("[Success] تَمَّ خَلْقُ الْعَقْلِ بنجاح.")
+
           if __name__ == "__main__":
               train()
           PY_EOF
-
-          # استبدال العلامة النصية بالمحتوى الفعلي لجيمني بشكل آمن
-          sed -i "s/EXPL_PLACEHOLDER/$(sed 's/[&/\]/\\&/g' explanation.txt | tr -d '\n' | tr -d '\r')/" mission.py
           
-          # تحويل السكربت الجاهز إلى ملف JSON لإرساله بأمان
-          jq -n --arg cmd "$(cat mission.py)" '{"event_type": "execute_task", "client_payload": {"commands": $cmd}}' > payload.json
+          # إعداد الحمولة بشكل آمن
+          jq -n --arg cmd "$(cat mission.py)" --arg expl "$(cat explanation.txt)" \
+            '{"event_type": "execute_task", "client_payload": {"commands": $cmd, "explanation": $expl}}' > payload.json
 
-      - name: "Sending Mission to Executor"
+      - name: "Sending To Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
