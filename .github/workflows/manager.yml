@@ -1,0 +1,100 @@
+name: 1. The Sovereign Manager
+on:
+  # يعمل عند التشغيل اليدوي لبدء المهمة
+  workflow_dispatch:
+  # يعمل عندما يستقبل تقرير خطأ من المنفذ
+  repository_dispatch:
+    types: [executor_failed]
+
+jobs:
+  manage_and_correct:
+    runs-on: ubuntu-latest
+    steps:
+      # الخطوة 1: استنساخ مستودع المنفذ (Full) للتمكن من تعديله
+      - name: "1. Access Executor's Blueprint"
+        uses: actions/checkout@v4
+        with:
+          # اسم مستودع المنفذ الذي نريد التحكم به
+          repository: cczxjdxz-max/Full
+          # استخدام التوكن للتمكن من الدفع (push)
+          token: ${{ secrets.PAT }}
+
+      # الخطوة 2: تحديد المهمة (إما بدء مهمة جديدة أو إصلاح خطأ)
+      - name: "2. Assess Situation & Command Gemini"
+        id: gemini_command
+        run: |
+          # التحقق إذا كان التشغيل بسبب تقرير خطأ
+          if [[ "${{ github.event.action }}" == "executor_failed" ]]; then
+            echo "Executor reported a failure. Analyzing error logs..."
+            # استلام سجل الخطأ من المنفذ
+            ERROR_LOG='${{ github.event.client_payload.error_log }}'
+            # قراءة كود المنفذ الحالي الذي سبب الخطأ
+            CURRENT_EXECUTOR_CODE=$(cat .github/workflows/executor.yml)
+
+            # صياغة برومبت الإصلاح لـ Gemini
+            PROMPT="CRITICAL: The Executor's workflow failed. 
+            Error Log: '''$ERROR_LOG'''
+            Current Flawed YAML Code: '''$CURRENT_EXECUTOR_CODE'''
+            Your task: Analyze the error and the YAML code. Provide a corrected, complete, and valid YAML file to fix the Executor. Output ONLY the raw, complete YAML code."
+
+          else
+            echo "Starting a new mission. Designing initial Executor workflow..."
+            # صياغة برومبت لإنشاء الكود الأولي للمنفذ
+            PROMPT="Design the initial YAML workflow for an Executor. 
+            Name: '2. The Executor'. 
+            Trigger: on repository_dispatch (type: execute_mission). 
+            Job: 'execute'. 
+            Steps: Checkout, Setup Python, Execute payload command from leader, Report success.
+            Output ONLY the raw, complete YAML code."
+          fi
+
+          # إرسال الطلب إلى Gemini API
+          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GOOGLE_API_KEY }}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}")
+
+          # استخلاص وتنظيف الكود الجديد للمنفذ
+          CORRECTED_CODE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed 's/```yaml//g; s/```//g')
+          
+          # التحقق من أن Gemini أعاد كوداً
+          if [ -z "$CORRECTED_CODE" ]; then
+            echo "Error: Gemini failed to provide a corrected code. Aborting."
+            exit 1
+          fi
+
+          # كتابة الكود الجديد فوق ملف المنفذ القديم
+          echo "$CORRECTED_CODE" > .github/workflows/executor.yml
+          echo "Gemini has provided the corrected blueprint for the Executor."
+
+      # الخطوة 3: تحديث مستودع المنفذ بالكود الجديد
+      - name: "3. Deploy Corrected Blueprint to Executor"
+        run: |
+          git config --global user.name "The Sovereign Manager"
+          git config --global user.email "manager@sovereign.ai"
+          
+          # التحقق من وجود تغييرات
+          if ! git diff-index --quiet HEAD; then
+            git add .github/workflows/executor.yml
+            git commit -m "Corrective Update: Deploying new operational blueprint from Manager."
+            git push
+            echo "Executor's workflow has been updated."
+          else
+            echo "No changes were necessary for the Executor's workflow."
+          fi
+
+      # الخطوة 4: إرسال أمر تنفيذ المهمة إلى المنفذ (فقط إذا لم يكن هذا إصلاحاً)
+      - name: "4. Dispatch Mission to Executor"
+        if: github.event.action != 'executor_failed'
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          echo "Dispatching initial mission to the newly configured Executor..."
+          # هنا يمكنك وضع أي أوامر أولية تريد من المنفذ تنفيذها
+          MISSION_COMMANDS="echo 'Mission received. Executing...' && python3 -c 'print(\"Hello from the Executor!\")'"
+          JSON_PAYLOAD=$(jq -n --arg commands "$MISSION_COMMANDS" '{"event_type": "execute_mission", "client_payload": {"commands": $commands}}')
+
+          curl -L -X POST -H "Authorization: Bearer $PAT" \
+               -H "Accept: application/vnd.github+json" \
+               https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
+               -d "$JSON_PAYLOAD"
