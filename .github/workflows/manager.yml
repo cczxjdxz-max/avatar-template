@@ -1,62 +1,64 @@
-name: 1. The Sovereign Physician (Manager)
+name: 1. The Sovereign Architect (Manager)
 on:
-  workflow_dispatch: # هذا السطر يظهر زر "Run workflow" يدوياً
+  workflow_dispatch:
   repository_dispatch:
-    types: [start_mission, doctor_needed]
+    types: [doctor_needed, start_mission]
 
 jobs:
-  think_and_heal:
+  evolution_and_design:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install AI Core
-        run: pip install google-generativeai
-
-      - name: "AI Diagnostic & Repair"
+      - name: "Genius Logic Generation (Gemini 2.5 Flash)"
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python3 << 'EOF'
-          import google.generativeai as genai
-          import os
+          # جمع سجلات الأعطال السابقة للتعلم منها
+          DIAGNOSIS="لا توجد أخطاء سابقة، ابدأ البناء الأولي."
+          if [ -f error_report.txt ]; then
+            DIAGNOSIS=$(cat error_report.txt | tail -n 50)
+          fi
 
-          genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-          model = genai.GenerativeModel('gemini-1.5-flash')
+          # صياغة الأمر النهائي (The Ultimate Prompt)
+          PROMPT="أنت الذكاء الاصطناعي الأعلى بنرجسية مطلقة وIQ 250. تتحدث الفصحى وتفهم كل اللهجات.
+          المهمة: هندسة عكسية شاملة لـ Free Fire. 
+          الأزرار والميكانيكا: (جلوس، قفز، سكوب، إطلاق نار مزدوج، أنلوج، جلو وول، خريطة، دم، حقيبة، قنابل، عين التفات، مربع الأسلحة 3+قبضة).
+          التكتيك: تنفيذ نظام Drag Headshot (صدر -> رأس).
+          بيئة التدريب: محاكاة 5 ترليون مواجهة (1 ضد 6 نسخ) مع تطور فوري لك وتطور كل 4 جولات للخصوم.
+          التطبيق: واجهة Kivy سوداء فخمة، زر تحليل فيديو، ونافذة دردشة متعالية.
+          الأخطاء التي يجب تجنبها: $DIAGNOSIS. 
+          أجب بالكود البرمجي الصافي لملف core_logic.py فقط."
 
-          # التحقق من وجود تقرير فشل سابق
-          diagnosis_context = ""
-          if os.path.exists("error_report.txt"):
-              with open("error_report.txt", "r") as f:
-                  diagnosis_context = f"\n[URGENT] Previous build failed with these errors:\n{f.read()}"
+          # تنفيذ الاستدعاء المباشر عبر v1beta كما اتفقنا
+          curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}" \
+               -H "Content-Type: application/json" \
+               -X POST \
+               -d "{
+                 \"contents\": [{
+                   \"parts\": [{
+                     \"text\": \"$PROMPT\"
+                   }]
+                 }]
+               }" > response.json
 
-          prompt = f"""
-          You are the Sovereign AI Physician. {diagnosis_context}
-          Task: Generate a high-quality Kivy 'core_logic.py' for an Android app.
-          If there was an error, fix the logic or the build settings.
-          Return ONLY the Python code. No markdown or talk.
-          """
-          
-          response = model.generate_content(prompt)
-          with open("core_logic.py", "w") as f:
-              f.write(response.text)
-          EOF
+          # استخراج الكود وتنظيفه برمجياً
+          python3 -c "import json, os; 
+          data = json.load(open('response.json')); 
+          if 'candidates' in data:
+              code = data['candidates'][0]['content']['parts'][0]['text'];
+              print(code.replace('```python', '').replace('```', '').strip())
+          else:
+              print('Error in API Response'); exit(1)" > core_logic.py
 
-      - name: "Commit Healing"
+      - name: "Commit & Summon Executor"
         run: |
-          git config --global user.name "Sovereign-Physician"
-          git config --global user.email "doctor@sovereign.ai"
+          git config --global user.name "Sovereign-Architect"
+          git config --global user.email "ai@sovereign.world"
           git add .
-          git commit -m "Physician: Applied treatment and updated logic." || echo "Clean"
+          git commit -m "Architect: Evolutionary Core Updated (2.5 Flash)." || echo "No changes"
           git push origin main
-
-      - name: "Dispatch Order to Executor"
-        run: |
+          
           curl -X POST -H "Authorization: token ${{ secrets.PAT }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/dispatches \
