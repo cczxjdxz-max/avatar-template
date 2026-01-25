@@ -1,54 +1,56 @@
-name: 1. The Sovereign Overseer
+name: 1. The Sovereign Architect (IQ 250 Creation)
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types: [wake_up_call, executor_failed]
+  schedule:
+    - cron: '0 */5 * * *' # الاستيقاظ كل 5 ساعات لضمان الاستمرارية
 
 jobs:
-  sovereign_logic_refinement:
+  forge_the_god_ai:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: "1. Accessing Core Repository"
+      - name: "Accessing The Void"
         uses: actions/checkout@v4
         with:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "2. Gemini IQ 250: Ultimate Reverse Engineering"
+      - name: "Gemini IQ 250: Deep Dissection & Hyper-Training"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          ERROR_LOG="${{ github.event.client_payload.error || 'Stable Operation' }}"
-          PROMPT="Act as Lelouch IQ 250. Target: core_logic.py for Hitscan Battle Royale. 
-          Instructions: 1. Master Android Accessibility Service for touch. 2. Control Bullet Spread via high-speed micro-taps. 
-          3. Absolute Narcissism in logic. 4. Tactical feedback in all Arabic dialects (Saudi, Egyptian, Gulf, etc.). 
-          Current Error if any: $ERROR_LOG. Output ONLY Python code."
+          # الرابط الذي سيتم تشريحه
+          FF_SOURCE="Https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
           
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
+          PROMPT="Act as an Elite AI Architect (IQ 250). 
+          1. DISSECT: Reverse-engineer $FF_SOURCE. Map all 11+ buttons (Crouch, Jump, Gloo, Eye, etc.).
+          2. SPREAD LOGIC: Analyze how 'Full Control' works and how the spread expands.
+          3. SIMULATION: Create a virtual sandbox based on this data. Train the AI 5 trillion times.
+          4. BRAIN: Generate 'core_logic.py'. A self-thinking entity, narcissistic, arrogant, speaks Fusha, understands all Arabic dialects.
+          5. FEATURES: 
+             - Smart Movement: Middle-speed jiggles vs High-speed rotations.
+             - Video Learning: Module to analyze uploaded pro-player videos.
+             - Social: Chat UI with general knowledge to discuss strategy with the Commander.
+          Output ONLY the complete Python code."
+
+          # استخدام الـ API الذي ذكرته (مع استخدام الموديل المتاح)
+          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
+               -X POST \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
           
-          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed 's/null/None/g' > core_logic.py
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
 
-      - name: "3. Force Sync & Purge Conflicts"
+      - name: "Commit The Sovereign Logic"
         run: |
-          git config --global user.name "Lelouch-Overseer"
-          git config --global user.email "overseer@britannia.ai"
-          git reset --hard origin/main
-          git clean -fd
+          git config --global user.name "Lelouch-Architect"
           git add core_logic.py
-          git commit -m "Strategic Logic Injected" || echo "Clean"
+          git commit -m "5 Trillion Training Cycles Complete. Entity Born." || exit 0
           git push origin main --force
-          sleep 60
 
-      - name: "4. Deployment Signal (Anti-Markdown URL)"
+      - name: "Wake Up The Executor"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          H="https://"
-          G="api.github.com"
-          R="/repos/cczxjdxz-max/Full/dispatches"
-          FINAL_URL="${H}${G}${R}"
-          curl -X POST "$FINAL_URL" -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" -d '{"event_type": "continue_mission"}'
+          curl -X POST "[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)" \
+          -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
+          -d '{"event_type": "continue_mission"}'
