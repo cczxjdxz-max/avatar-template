@@ -1,4 +1,4 @@
-name: 1. The Sovereign Physician (Gemini 2.5 Flash Lite)
+name: 1. The Sovereign Physician (Quota Resilient)
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -10,46 +10,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Sovereign AI Reasoning"
+      - name: "Sovereign AI Reasoning with Auto-Retry"
         env:
-          # تم التعديل للاسم الصحيح هنا
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           REPORTS: ${{ github.event.client_payload.task_reports || 'System Startup' }}
         run: |
           python3 << 'EOF'
-          import os, json, requests, sys
+          import os, json, requests, sys, time
 
-          # جلب المفتاح بالاسم الصحيح
           api_key = os.getenv('GOOGLE_API_KEY')
           reports = os.getenv('REPORTS')
           
-          if not api_key:
-              print("Critical Error: GOOGLE_API_KEY is missing in Secrets!")
-              sys.exit(1)
-
           prompt_text = f"أنت الذكاء السيادي. المهمة: كود Python لملف main.py (Kivy/OpenCV). المواصفات: واجهة سوداء وذهبية نرجسية، موسيقى هيبة، محاكاة 5 تريليون دورة. التقرير: {reports}. أصلح أي خطأ لضمان 'كل طلقة أحمر' في فري فاير (حساب ضيف). أجب بالكود فقط."
           
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={api_key}"
-          payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+          # قائمة الموديلات المتاحة (بالترتيب من الأفضل للأكثر توفراً)
+          models = ["gemini-2.5-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
           
-          try:
+          def try_generate(model_name):
+              url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+              payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
               response = requests.post(url, json=payload)
-              data = response.json()
+              return response
+
+          for model in models:
+              print(f"Trying with model: {model}...")
+              res = try_generate(model)
+              data = res.json()
               
+              if res.status_code == 429:
+                  retry_after = 50 # الانتظار 50 ثانية حسب نصيحة جوجل
+                  print(f"Quota exceeded for {model}. Waiting {retry_after}s...")
+                  time.sleep(retry_after)
+                  # المحاولة مرة أخرى لنفس الموديل بعد الانتظار
+                  res = try_generate(model)
+                  data = res.json()
+
               if 'candidates' in data:
                   content = data['candidates'][0]['content']['parts'][0]['text']
-                  # تنظيف وحفظ الكود
                   import re
                   clean_code = re.sub(r'```python|```', '', content).strip()
                   with open('main.py', 'w') as f:
                       f.write(clean_code)
-                  print("Success: Sovereign Code Generated")
+                  print(f"Success! Code generated using {model}")
+                  sys.exit(0)
               else:
-                  print("API Error Response:", json.dumps(data, indent=2))
-                  sys.exit(1)
-          except Exception as e:
-              print(f"Network or JSON Error: {e}")
-              sys.exit(1)
+                  print(f"Failed with {model}: {data.get('error', {}).get('message', 'Unknown error')}")
+          
+          print("All models failed or quota exceeded everywhere.")
+          sys.exit(1)
           EOF
 
       - name: "Deploy to Executor"
@@ -61,5 +69,5 @@ jobs:
           cp main.py temp_full/main.py
           cd temp_full
           echo "[app]\ntitle=Sovereign AI\npackage.name=sovereign.ai\nrequirements=python3,kivy,opencv,numpy,android\nandroid.api=33\nandroid.ndk=25b\nandroid.arch=arm64-v8a" > buildozer.spec
-          git add . && git commit -m "Leader: Auto-Update via Gemini 2.5" && git push origin main
+          git add . && git commit -m "Leader: Resilient Update via Multi-Model" && git push origin main
           curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
