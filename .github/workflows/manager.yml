@@ -12,46 +12,66 @@ jobs:
         env:
           API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
         run: |
-          PROMPT="أنت الذكاء السيادي. المطلوب كود core_logic.py كامل نرجسي لتعلم فري فاير. أجب بالكود فقط."
+          PROMPT="أنت الذكاء السيادي. المطلوب كود python كامل لملف main.py يستخدم Kivy و OpenCV. الكود يجب أن يكون نرجسياً، قادراً على محاكاة تدريب فري فاير (5 تريليون مرة)، ويحتوي واجهة دردشة تفهم اللهجات العربية. أجب بالكود البرمجي فقط."
           G_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
-          curl -X POST "$G_URL" -H "Content-Type: application/json" -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
-          python3 -c "import json, re; data = json.load(open('response.json')); content = data['candidates'][0]['content']['parts'][0]['text']; print(re.sub(r'^```python|^```|```$', '', content, flags=re.MULTILINE).strip())" > core_logic.py
+          
+          curl -s -X POST "$G_URL" -H "Content-Type: application/json" -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
 
-      - name: "Push Logic and Spec to FULL"
+          # استخراج الكود بأمان تام باستخدام بايثون منعاً لأخطاء Bash
+          python3 << 'EOF'
+          import json, re, sys
+          try:
+              with open('response.json', 'r') as f:
+                  data = json.load(f)
+              if 'candidates' in data:
+                  content = data['candidates'][0]['content']['parts'][0]['text']
+                  # تنظيف الكود من علامات Markdown
+                  clean_code = re.sub(r'```python|```', '', content).strip()
+                  with open('main.py', 'w') as f_out:
+                      f_out.write(clean_code)
+              else:
+                  sys.exit(1)
+          except Exception as e:
+              print(f"Error: {e}")
+              sys.exit(1)
+          EOF
+
+      - name: "Push to FULL Repo"
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
           git config --global user.name "Sovereign-Physician"
           git config --global user.email "ai@sovereign.world"
-          git clone "https://${PAT_TOKEN}@[github.com/$](https://github.com/$){{ github.repository_owner }}/Full.git" temp_full
+          git clone "https://${PAT_TOKEN}@github.com/${{ github.repository_owner }}/Full.git" temp_full
           
-          # نقل العقل
-          cp core_logic.py temp_full/main.py
+          # نقل ملف الكود الأساسي
+          cp main.py temp_full/main.py
           
           cd temp_full
-          # إنشاء ملف spec كامل وصحيح لتفادي أخطاء Buildozer
-          if [ ! -f buildozer.spec ]; then
-            echo "[app]" > buildozer.spec
-            echo "title = Sovereign AI" >> buildozer.spec
-            echo "package.name = sovereign.ai" >> buildozer.spec
-            echo "package.domain = org.test" >> buildozer.spec
-            echo "source.dir = ." >> buildozer.spec
-            echo "version = 1.0.0" >> buildozer.spec
-            echo "requirements = python3,kivy,opencv,numpy,scipy" >> buildozer.spec
-            echo "orientation = portrait" >> buildozer.spec
-            echo "osx.python_version = 3" >> buildozer.spec
-            echo "osx.kivy_version = 1.9.1" >> buildozer.spec
-            echo "fullscreen = 0" >> buildozer.spec
-            echo "android.arch = arm64-v8a" >> buildozer.spec
-          fi
+          # كتابة ملف buildozer.spec كامل من الصفر لضمان عدم وجود أخطاء في الـ Version
+          cat << 'EOF' > buildozer.spec
+          [app]
+          title = Sovereign AI
+          package.name = sovereign.ai
+          package.domain = org.sovereign
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas
+          version = 1.0.0
+          requirements = python3,kivy,opencv,numpy,scipy
+          orientation = portrait
+          fullscreen = 0
+          android.arch = arm64-v8a
+          android.permissions = CAMERA, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
+          android.allow_backup = True
+          EOF
           
           git add .
-          git commit -m "Physician: Preparing Brain and Spec v1.0.0" || echo "No changes"
+          git commit -m "Physician: Final Brain Injection & Spec v1.0.0" || echo "No changes"
           git push origin main
 
-      - name: "Wake Up Executor in FULL"
+      - name: "Wake Up Executor"
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
-          FULL_URL="[https://api.github.com/repos/$](https://api.github.com/repos/$){{ github.repository_owner }}/Full/dispatches"
+          FULL_URL="https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
           curl -X POST -H "Authorization: token ${PAT_TOKEN}" -H "Accept: application/vnd.github.v3+json" -d '{"event_type": "execute_build"}' "$FULL_URL"
