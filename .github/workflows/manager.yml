@@ -1,23 +1,22 @@
 name: 1. The Sovereign Physician (Manager)
 on:
   repository_dispatch:
-    types: [doctor_needed, start_mission]
+    types: [start_mission, doctor_needed] # يبدأ عند الطلب أو عند استغاثة المنفذ
 
 jobs:
-  heal_and_order:
+  think_and_heal:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python
+      - name: AI Brain Setup
         uses: actions/setup-python@v4
-        with:
-          python3-version: '3.9'
+        with: { python-version: '3.9' }
 
-      - name: Install AI Brain
+      - name: Install Intelligence
         run: pip install google-generativeai
 
-      - name: "Doctor Analysis & Repair"
+      - name: "AI Diagnostics & Logic Generation"
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -28,35 +27,35 @@ jobs:
           genai.configure(api_key=os.environ["GEMINI_API_KEY"])
           model = genai.GenerativeModel('gemini-1.5-flash')
 
-          def diagnose():
-              if not os.path.exists("error_report.txt"):
-                  print("No sickness detected. Starting fresh mission.")
-                  return "Create a basic Kivy 'Hello World' app."
-
+          # 1. التحقق من وجود تقرير فشل (التشخيص الطبي)
+          diagnosis = ""
+          if os.path.exists("error_report.txt"):
               with open("error_report.txt", "r") as f:
-                  logs = f.read()
-              
-              prompt = f"The following Android build error occurred: {logs}. Provide the corrected version of buildozer.spec or the necessary fix in core_logic.py. Give me ONLY the code."
-              response = model.generate_content(prompt)
-              return response.text
+                  diagnosis = f"\nCRITICAL ERROR FOUND:\n{f.read()}"
 
-          treatment = diagnose()
-          # تطبيق الإصلاح على الملفات
+          # 2. صياغة الأمر لـ Gemini (المساند)
+          prompt = f"""
+          You are the Sovereign AI Architect. {diagnosis}
+          Task: Create a professional Kivy 'core_logic.py' for Android.
+          If there's an error above, FIX IT in the code or settings.
+          Provide ONLY the Python code. No chatter.
+          """
+          
+          response = model.generate_content(prompt)
           with open("core_logic.py", "w") as f:
-              f.write(treatment)
+              f.write(response.text)
           EOF
 
-      - name: "Apply Treatment to Repository"
+      - name: "Commit & Deploy Order"
         run: |
           git config --global user.name "Sovereign-Physician"
           git config --global user.email "doctor@sovereign.ai"
           git add .
-          git commit -m "Treatment applied: Fixing build errors and retrying." || echo "No changes to commit"
+          git commit -m "Physician: Diagnostic complete. Applied treatment." || echo "No changes"
           git push origin main
-
-      - name: "Re-send Patient to Surgery"
-        run: |
+          
+          # إرسال الأمر للمنفذ لبدء العمل/الإعادة
           curl -X POST -H "Authorization: token ${{ secrets.PAT }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/dispatches \
-            -d '{"event_type": "continue_mission"}'
+            -d '{"event_type": "execute_build"}'
