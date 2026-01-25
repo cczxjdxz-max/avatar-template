@@ -14,17 +14,12 @@ jobs:
         env:
           API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
         run: |
-          PROMPT="أنت الذكاء السيادي (IQ 250). المطلوب بناء 'core_logic.py' يعمل OFFLINE تماماً. 
-          1. ذكاء محلي (NumPy/OpenCV) لتحليل الأزرار (قفز، جلوس، جلو وول، إلخ) وتنفيذ الـ Drag Headshot.
-          2. محاكي تدريب (1 ضد 6) يتطور محلياً.
-          3. تشفير داخلي للمنطق البرمجي لحماية الذكاء من الهندسة العكسية.
-          4. واجهة دردشة نرجسية بالفصحى.
-          أجب بالكود البرمجي الصافي فقط."
+          PROMPT="أنت الذكاء السيادي (IQ 250). المطلوب بناء 'core_logic.py' يعمل OFFLINE تماماً. يتضمن: ذكاء محلي (NumPy/OpenCV) لتحليل أزرار فري فاير ونظام Drag Headshot، محاكي تدريب 1 ضد 6، تشفير داخلي، ودردشة نرجسية. أجب بالكود البرمجي الصافي فقط."
 
-          # استدعاء مباشر مع حماية الرابط من التنسيق
-          URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
+          # بناء رابط جوجل برمجياً
+          G_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
           
-          curl -X POST "$URL" \
+          curl -X POST "$G_URL" \
                -H "Content-Type: application/json" \
                -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
 
@@ -46,15 +41,22 @@ jobs:
 
       - name: "Commit & Wake Up Executor"
         env:
-          REPO: ${{ github.repository }}
+          # نمرر المتغيرات هنا ونترك الـ Shell يركب الرابط
+          REPO_NAME: ${{ github.repository }}
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
           git config --global user.name "Sovereign-Architect"
           git config --global user.email "ai@sovereign.world"
           git add .
-          git commit -m "Architect: On-Device AI Core Encrypted & Generated." || echo "No changes"
+          git commit -m "Architect: On-Device AI Core Finalized." || echo "No changes"
           git push origin main
           
-          # سطر التشغيل النظيف - لا تلمسه أو تنسخه كـ Markdown
-          API_URL="[https://api.github.com/repos/$REPO/dispatches](https://api.github.com/repos/$REPO/dispatches)"
-          curl -X POST -H "Authorization: token $PAT_TOKEN" -H "Accept: application/vnd.github.v3+json" "$API_URL" -d '{"event_type": "execute_build"}'
+          # بناء الرابط برمجياً بالكامل لتفادي أخطاء Markdown
+          BASE_URL="[https://api.github.com/repos](https://api.github.com/repos)"
+          FULL_URL="${BASE_URL}/${REPO_NAME}/dispatches"
+          
+          curl -X POST \
+               -H "Authorization: token ${PAT_TOKEN}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               -d '{"event_type": "execute_build"}' \
+               "${FULL_URL}"
