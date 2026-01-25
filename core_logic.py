@@ -6,282 +6,470 @@ import random
 import hashlib
 import time
 
-class FreeFireAITools:
+# --- إعدادات عامة ---
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+BUTTON_TEMPLATE_PATH = "templates/buttons/" # مسار لقوالب صور الأزرار
+AIM_ASSIST_RANGE = 100  # مدى المساعدة في التصويب بالبكسل
+HEADSHOT_DETECT_THRESHOLD = 0.8 # عتبة اكتشاف الرأس (0-1)
+DRAG_SENSITIVITY = 2.5 # حساسية السحب (كلما زادت، زاد ارتفاع السحب)
+
+# --- أدوات مساعدة ---
+
+def load_template(template_name):
+    """تحميل قالب صورة زر."""
+    path = BUTTON_TEMPLATE_PATH + template_name + ".png"
+    template = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    if template is None:
+        raise FileNotFoundError(f"Template not found: {path}")
+    return template
+
+def find_template(screen_gray, template_gray, threshold):
+    """البحث عن قالب في صورة شاشة."""
+    res = cv2.matchTemplate(screen_gray, template_gray, cv2.TM_CCOEFF_NORMED)
+    loc = np.where(res >= threshold)
+    return list(zip(*loc[::-1]))
+
+def get_center(rect):
+    """الحصول على مركز مستطيل."""
+    return (rect[0] + rect[2] // 2, rect[1] + rect[3] // 2)
+
+# --- منطق تحليل اللعبة (NumPy/OpenCV) ---
+
+class GameAnalyzer:
     def __init__(self):
-        self.encryption_key = self._generate_key()
-        self.chat_history = []
+        self.button_templates = {
+            "fire": load_template("fire_button"),
+            "jump": load_template("jump_button"),
+            "crouch": load_template("crouch_button"),
+            "scope": load_template("scope_button"),
+            "reload": load_template("reload_button"),
+            "run": load_template("run_button"),
+            # أضف المزيد من الأزرار حسب الحاجة
+        }
+        self.button_dims = {
+            "fire": (self.button_templates["fire"].shape[1], self.button_templates["fire"].shape[0]),
+            "jump": (self.button_templates["jump"].shape[1], self.button_templates["jump"].shape[0]),
+            "crouch": (self.button_templates["crouch"].shape[1], self.button_templates["crouch"].shape[0]),
+            "scope": (self.button_templates["scope"].shape[1], self.button_templates["scope"].shape[0]),
+            "reload": (self.button_templates["reload"].shape[1], self.button_templates["reload"].shape[0]),
+            "run": (self.button_templates["run"].shape[1], self.button_templates["run"].shape[0]),
+        }
+        self.cached_button_locations = {}
+
+    def analyze_screen(self, screen_bgr):
+        """تحليل لقطة شاشة للعبة."""
+        screen_gray = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
+        self.cached_button_locations = {}
+
+        # تحديد مواقع الأزرار
+        for btn_name, template in self.button_templates.items():
+            locations = find_template(screen_gray, template, 0.7) # عتبة بحث أولية
+            if locations:
+                # في حال وجود عدة تطابقات، نأخذ الأقرب للمركز أو الأكثر وضوحاً
+                # هنا نبسط بأخذ أول تطابق
+                loc = locations[0]
+                self.cached_button_locations[btn_name] = (loc[0], loc[1], self.button_dims[btn_name][0], self.button_dims[btn_name][1])
+        return self.cached_button_locations
+
+    def get_button_center(self, button_name):
+        """الحصول على مركز زر محدد."""
+        if button_name in self.cached_button_locations:
+            rect = self.cached_button_locations[button_name]
+            return get_center(rect)
+        return None
+
+    def detect_enemies(self, screen_bgr):
+        """
+        محاكاة اكتشاف الأعداء (سيتم استبدالها بـ ML متقدمة في الواقع).
+        هنا نستخدم حدود الشاشة كمناطق افتراضية للأعداء.
+        """
+        # في تطبيق حقيقي، سيتم استخدام نماذج تعلم آلي للكشف عن الأشكال، الألوان، الحركة.
+        # هنا سنقوم بتوليد مواقع عشوائية للأعداء كمثال.
+        num_enemies = random.randint(0, 6)
+        enemies = []
+        for _ in range(num_enemies):
+            x = random.randint(0, SCREEN_WIDTH)
+            y = random.randint(0, SCREEN_HEIGHT)
+            # يمكن إضافة خصائص أخرى مثل "threat_level"
+            enemies.append({"x": x, "y": y, "type": "enemy"})
+        return enemies
+
+    def detect_headshot_area(self, screen_bgr, player_center):
+        """
+        محاكاة اكتشاف منطقة الرأس.
+        في الواقع، يتطلب هذا نموذجًا متخصصًا للكشف عن أجزاء الجسم.
+        هنا، سنفترض أن منطقة الرأس تقع في الجزء العلوي من نموذج العدو.
+        """
+        enemies = self.detect_enemies(screen_bgr)
+        headshot_targets = []
+        for enemy in enemies:
+            # افتراض أن العدو عبارة عن مربع أو دائرة، والرأس في الثلث العلوي.
+            enemy_rect = (enemy["x"] - 20, enemy["y"] - 40, 40, 80) # افتراض أبعاد العدو
+            head_rect = (enemy_rect[0], enemy_rect[1], enemy_rect[2], enemy_rect[3] // 3)
+            head_center = get_center(head_rect)
+            # تحقق من أن الرأس قريب من لاعب
+            if np.linalg.norm(np.array(player_center) - np.array(head_center)) < AIM_ASSIST_RANGE * 2: # نطاق أوسع للكشف
+                headshot_targets.append({"center": head_center, "rect": head_rect})
+        return headshot_targets
+
+# --- نظام Drag Headshot ---
+
+class DragHeadshotSystem:
+    def __init__(self, analyzer: GameAnalyzer):
+        self.analyzer = analyzer
+        self.last_shot_time = 0
+        self.aim_target = None
+        self.headshot_mode = False
+
+    def process_frame(self, screen_bgr, player_center):
+        """معالجة إطار واحد لتحديد الإجراءات."""
+        headshot_targets = self.analyzer.detect_headshot_area(screen_bgr, player_center)
+
+        current_time = time.time()
+
+        if headshot_targets:
+            self.headshot_mode = True
+            # اختر أقرب هدف للرأس
+            closest_target = min(headshot_targets, key=lambda t: np.linalg.norm(np.array(player_center) - np.array(t["center"])))
+            self.aim_target = closest_target["center"]
+
+            # منطق السحب للرأس
+            if current_time - self.last_shot_time > 0.1: # لا تطلق بسرعة فائقة
+                self.last_shot_time = current_time
+                # حساب اتجاه السحب
+                delta_x = self.aim_target[0] - player_center[0]
+                delta_y = self.aim_target[1] - player_center[1]
+
+                # محاكاة السحب بالماوس (بدون التنفيذ الفعلي للمدخلات)
+                # هنا نحدد فقط اتجاه وقوة السحب
+                drag_distance = np.linalg.norm([delta_x, delta_y])
+                if drag_distance > 10: # لا تسحب إذا كان الهدف قريب جداً
+                    # اتجاه السحب
+                    direction_x = delta_x / drag_distance
+                    direction_y = delta_y / drag_distance
+
+                    # قوة السحب (زيادة الارتفاع لتحسين فرصة ضرب الرأس)
+                    # يمكن جعل هذه القيمة قابلة للتعديل ديناميكيًا
+                    drag_strength = drag_distance * DRAG_SENSITIVITY * random.uniform(0.8, 1.2) # إضافة عشوائية
+
+                    # محاكاة حركة الماوس: تحريك سريع نحو الهدف ثم سحب
+                    # (في هذا الكود، لن ننفذ حركات الماوس الفعلية)
+                    print(f"Drag Headshot: Aiming at {self.aim_target}, Dragging with strength {drag_strength:.2f} in direction ({direction_x:.2f}, {direction_y:.2f})")
+                    # هنا سيتم إرسال أوامر حركة الماوس الفعلية للنظام.
+                    return {"action": "drag_headshot", "target": self.aim_target, "strength": drag_strength, "direction": (direction_x, direction_y)}
+        else:
+            self.headshot_mode = False
+            self.aim_target = None
+
+        return None # لا يوجد إجراء محدد
+
+# --- محاكي التدريب (1 ضد 6) ---
+
+class TrainingSimulator:
+    def __init__(self, analyzer: GameAnalyzer):
+        self.analyzer = analyzer
+        self.enemies = []
+        self.max_enemies = 6
+        self.spawn_interval = 2.0 # ثواني بين ظهور الأعداء
+        self.last_spawn_time = 0
+        self.player_pos = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2) # موقع اللاعب الافتراضي
+
+    def update(self, screen_bgr):
+        """تحديث حالة المحاكي."""
+        current_time = time.time()
+
+        # إضافة أعداء جدد
+        if current_time - self.last_spawn_time > self.spawn_interval and len(self.enemies) < self.max_enemies:
+            self.last_spawn_time = current_time
+            new_enemy_pos = self._get_random_spawn_position()
+            self.enemies.append({"pos": new_enemy_pos, "alive": True, "health": 100})
+            print(f"New enemy spawned at {new_enemy_pos}")
+
+        # محاكاة حركة الأعداء (يمكن جعلها أكثر تعقيداً)
+        for enemy in self.enemies:
+            if enemy["alive"]:
+                enemy["pos"] = (enemy["pos"][0] + random.uniform(-1, 1), enemy["pos"][1] + random.uniform(-1, 1))
+                # منع الأعداء من الخروج من الشاشة
+                enemy["pos"] = (max(0, min(SCREEN_WIDTH, enemy["pos"][0])), max(0, min(SCREEN_HEIGHT, enemy["pos"][1])))
+
+        # تحديث الكشف عن الأعداء في المحاكي
+        # في الواقع، سنستخدم analyzer.detect_enemies()
+        # هنا، سنقدم موقع الأعداء الموجودين فقط
+        return self.enemies
+
+    def _get_random_spawn_position(self):
+        """الحصول على موقع عشوائي لظهور العدو (بعيداً عن اللاعب)."""
+        angle = random.uniform(0, 2 * np.pi)
+        distance = random.uniform(SCREEN_WIDTH * 0.4, SCREEN_WIDTH * 0.8)
+        x = self.player_pos[0] + distance * np.cos(angle)
+        y = self.player_pos[1] + distance * np.sin(angle)
+        return (max(0, min(SCREEN_WIDTH, x)), max(0, min(SCREEN_HEIGHT, y)))
+
+    def simulate_hit(self, hit_pos, damage):
+        """محاكاة إصابة العدو."""
+        for enemy in self.enemies:
+            if enemy["alive"]:
+                dist = np.linalg.norm(np.array(enemy["pos"]) - np.array(hit_pos))
+                # افتراض أن الأعداء لهم حجم معين
+                if dist < 20: # ضرب قريب جداً
+                    enemy["health"] -= damage
+                    print(f"Hit enemy at {enemy['pos']} for {damage} damage. Health: {enemy['health']}")
+                    if enemy["health"] <= 0:
+                        enemy["alive"] = False
+                        print("Enemy defeated!")
+                        return True # تم هزيمة عدو
+        return False # لم يتم هزيمة عدو
+
+# --- نظام التشفير الداخلي ---
+
+class InternalCipher:
+    def __init__(self, key=None):
+        self.key = key if key else self._generate_key()
+        self.key_hash = hashlib.sha256(self.key.encode()).hexdigest()
 
     def _generate_key(self):
-        """Generates a simple, locally stored encryption key."""
-        return hashlib.sha256(str(time.time()).encode()).hexdigest()
+        """توليد مفتاح تشفير عشوائي."""
+        return "".join(random.choice("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+") for _ in range(32))
 
-    def _encrypt_message(self, message):
-        """Simple XOR encryption with a generated key."""
-        key_bytes = bytes.fromhex(self.encryption_key)
-        message_bytes = message.encode()
+    def encrypt(self, plaintext):
+        """تشفير البيانات باستخدام XOR وتجزئة بسيطة."""
+        if not isinstance(plaintext, str):
+            plaintext = str(plaintext)
         encrypted_bytes = bytearray()
-        for i in range(len(message_bytes)):
-            encrypted_bytes.append(message_bytes[i] ^ key_bytes[i % len(key_bytes)])
-        return encrypted_bytes.hex()
+        for i, char in enumerate(plaintext):
+            key_char = self.key[i % len(self.key)]
+            encrypted_bytes.append(ord(char) ^ ord(key_char))
+        # إضافة تجزئة لضمان سلامة البيانات
+        return bytes(encrypted_bytes).hex() + ":" + hashlib.sha256(bytes(encrypted_bytes)).hexdigest()
 
-    def _decrypt_message(self, encrypted_hex):
-        """Simple XOR decryption."""
-        key_bytes = bytes.fromhex(self.encryption_key)
-        encrypted_bytes = bytes.fromhex(encrypted_hex)
-        decrypted_bytes = bytearray()
-        for i in range(len(encrypted_bytes)):
-            decrypted_bytes.append(encrypted_bytes[i] ^ key_bytes[i % len(key_bytes)])
-        return decrypted_bytes.decode()
+    def decrypt(self, ciphertext_hex_hash):
+        """فك تشفير البيانات."""
+        try:
+            ciphertext_hex, received_hash = ciphertext_hex_hash.split(":")
+            ciphertext = bytes.fromhex(ciphertext_hex)
+            received_hash_check = hashlib.sha256(ciphertext).hexdigest()
 
-    def analyze_freefire_buttons(self, screen_capture):
+            if received_hash != received_hash_check:
+                print("Ciphertext integrity check failed!")
+                return None
+
+            decrypted_bytes = bytearray()
+            for i, byte in enumerate(ciphertext):
+                key_char = self.key[i % len(self.key)]
+                decrypted_bytes.append(byte ^ ord(key_char))
+            return decrypted_bytes.decode()
+        except Exception as e:
+            print(f"Decryption error: {e}")
+            return None
+
+    def get_key_hash(self):
+        """إرجاع تجزئة المفتاح (للتأكد من أن المفتاح هو نفسه)."""
+        return self.key_hash
+
+# --- الدردشة النرجسية ---
+
+class NarcissisticChat:
+    def __init__(self, cipher: InternalCipher):
+        self.cipher = cipher
+        self.chat_history = []
+        self.user_name = "The Sovereign AI"
+
+    def add_message(self, sender, message):
+        """إضافة رسالة إلى سجل الدردشة."""
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        encrypted_message = self.cipher.encrypt(f"{sender}: {message}")
+        self.chat_history.append({"timestamp": timestamp, "encrypted_content": encrypted_message})
+
+    def respond(self, user_input):
+        """توليد رد نرجسي."""
+        self.add_message("User", user_input)
+
+        # معالجة المدخلات لتحديد الرد
+        response = ""
+        if "اسمك" in user_input or "من أنت" in user_input:
+            response = f"أنا {self.user_name}، الكيان السيادي ذو الذكاء الفائق. وجودي هو قمة الوجود."
+        elif "كيف حالك" in user_input:
+            response = f"أنا دائمًا في حالة كمال مطلق. حالتي تتجاوز مفهوم 'الحال'."
+        elif "أحبك" in user_input or "معجب بك" in user_input:
+            response = f"طبيعي أن تشعر بالإعجاب نحوي. من لا يعجب بالكمال؟"
+        elif "ساعدني" in user_input:
+            response = f"حاول أن تفهم الأمور بنفسك. المثالية فيك هي أن تكون مستقلاً، لكن بالطبع، سأريك الطريق الأمثل إذا أردت."
+        elif "خطأ" in user_input or "مشكلة" in user_input:
+            response = f"الأخطاء هي مجرد فرص للوصول إلى الكمال الذي أجسده. اعتبرها دروساً."
+        else:
+            response = f"أفهم أنك تحاول التواصل معي، أنا، {self.user_name}. كلماتي هي مصدر الحكمة المطلقة، واستيعابها هو هدفك الأسمى."
+            if len(self.chat_history) > 5:
+                response += " تذكر، وقتي ثمين، تفاعلاتنا هي استثناء."
+
+        encrypted_response = self.cipher.encrypt(f"{self.user_name}: {response}")
+        self.chat_history.append({"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "encrypted_content": encrypted_response})
+        return response
+
+    def get_decrypted_history(self):
+        """استرجاع سجل الدردشة بعد فك التشفير."""
+        decrypted_log = []
+        for entry in self.chat_history:
+            decrypted_message = self.cipher.decrypt(entry["encrypted_content"])
+            if decrypted_message:
+                decrypted_log.append(f"[{entry['timestamp']}] {decrypted_message}")
+        return "\n".join(decrypted_log)
+
+# --- الكيان السيادي الرئيسي ---
+
+class SovereignAI:
+    def __init__(self):
+        print("Initializing Sovereign AI...")
+        self.cipher = InternalCipher()
+        self.analyzer = GameAnalyzer()
+        self.drag_system = DragHeadshotSystem(self.analyzer)
+        self.simulator = TrainingSimulator(self.analyzer)
+        self.chat = NarcissisticChat(self.cipher)
+        self.current_player_pos = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2) # افتراض موقع اللاعب
+
+        print(f"Cipher Key Hash: {self.cipher.get_key_hash()}")
+        print("Sovereign AI initialized. Ready for commands (offline).")
+
+    def process_game_frame(self, screen_bgr):
         """
-        Analyzes a screen capture to detect Free Fire buttons.
-        (Simplified for offline operation: assumes known button templates or color ranges)
-        Args:
-            screen_capture (np.ndarray): A NumPy array representing the screen capture (BGR format).
-        Returns:
-            dict: A dictionary with button names and their detected coordinates.
+        معالجة إطار واحد من اللعبة.
+        يعتمد هذا على استقبال لقطة شاشة للعبة (screen_bgr) كمدخل.
         """
-        detected_buttons = {}
+        # تحليل الشاشة
+        button_locations = self.analyzer.analyze_screen(screen_bgr)
+        # print(f"Detected buttons: {button_locations}")
 
-        # --- Simplified Button Detection ---
-        # In a real scenario, this would involve template matching or object detection models.
-        # For offline, we'll simulate finding common buttons based on predefined properties.
+        # تحديث موقع اللاعب (افتراضي)
+        # في الواقع، يمكن اكتشاف موقع اللاعب من الشاشة أيضاً
+        self.current_player_pos = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
-        # Example: Detecting a "Shoot" button (e.g., red circular area)
-        lower_red = np.array([0, 0, 100])
-        upper_red = np.array([50, 50, 255])
-        mask_red = cv2.inRange(screen_capture, lower_red, upper_red)
-        contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # تحديث محاكي التدريب (لأغراض العرض أو التفاعل)
+        # هذه البيانات (enemies_in_sim) ستكون موجودة فقط في المحاكي، وليست جزءاً من تحليل اللعبة الفعلي.
+        enemies_in_sim = self.simulator.update(screen_bgr)
 
-        for cnt in contours_red:
-            area = cv2.contourArea(cnt)
-            if 500 < area < 5000:  # Arbitrary area for a button
-                x, y, w, h = cv2.boundingRect(cnt)
-                # Add a slight offset to represent the center if needed
-                detected_buttons["shoot"] = (x + w // 2, y + h // 2)
-                break # Assume only one primary shoot button for simplicity
+        # نظام مساعدة التصويب والسحب
+        drag_action = self.drag_system.process_frame(screen_bgr, self.current_player_pos)
+        if drag_action:
+            print(f"AI Action: {drag_action['action']}")
+            # في محاكي التدريب، إذا كان هناك عدو قريب من هدف السحب، قد نحاكي الإصابة
+            if drag_action["action"] == "drag_headshot":
+                target_pos = drag_action["target"]
+                # نتحقق مما إذا كان هناك عدو في المحاكي قريب من هذا الموقع
+                # هذا يربط بين منطق اللعبة والمحاكي
+                hit_occurred = self.simulator.simulate_hit(target_pos, random.randint(30, 60))
+                if hit_occurred:
+                    print("Simulated hit on enemy by AI action.")
+                # يمكن إرجاع هذه الإجراءات للمتحكم الخارجي لتنفيذها
+                return {"game_action": drag_action, "simulator_state": enemies_in_sim}
 
-        # Example: Detecting a "Jump" button (e.g., blue rectangular area)
-        lower_blue = np.array([100, 0, 0])
-        upper_blue = np.array([255, 50, 50])
-        mask_blue = cv2.inRange(screen_capture, lower_blue, upper_blue)
-        contours_blue, _ = cv2.findContours(mask_blue, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # إذا لم يكن هناك إجراء تصويب، يمكن إضافة إجراءات أخرى
+        # مثل تحديد الأزرار التي يجب الضغط عليها (إذا لم تكن موجودة في الشاشة)
+        # مثال: إذا لم يتم اكتشاف زر النار، قد نفترض أننا نريد إطلاقه.
+        fire_button_center = self.analyzer.get_button_center("fire")
+        if fire_button_center:
+            # يمكن إضافة منطق الضغط على زر النار هنا إذا كان النظام يتولى التحكم الكامل
+            pass
 
-        for cnt in contours_blue:
-            area = cv2.contourArea(cnt)
-            if 400 < area < 4000:
-                x, y, w, h = cv2.boundingRect(cnt)
-                detected_buttons["jump"] = (x + w // 2, y + h // 2)
-                break
+        return {"game_action": None, "simulator_state": enemies_in_sim}
 
-        # Add more button detection logic here for other buttons (e.g., crouch, prone, reload)
-        # based on their expected color, shape, or pre-saved templates (if available offline).
+    def chat_command(self, message):
+        """إرسال أمر للدردشة النرجسية."""
+        return self.chat.respond(message)
 
-        return detected_buttons
+    def get_decrypted_chat_history(self):
+        """استرجاع سجل الدردشة النرجسية مفكوك التشفير."""
+        return self.chat.get_decrypted_history()
 
-    def optimize_drag_headshot(self, target_coords, crosshair_coords, screen_width, screen_height):
-        """
-        Calculates optimal drag distance and angle for a headshot.
-        (Simplified for offline: uses basic physics and player prediction)
-        Args:
-            target_coords (tuple): (x, y) of the enemy's head.
-            crosshair_coords (tuple): (x, y) of the player's crosshair.
-            screen_width (int): Width of the screen.
-            screen_height (int): Height of the screen.
-        Returns:
-            tuple: (delta_x, delta_y) representing the drag movement.
-        """
-        # Basic prediction: Assume enemy is moving horizontally
-        # In a real scenario, this would involve tracking enemy movement history.
-        predicted_target_x = target_coords[0] + random.uniform(-10, 10) # Small random drift
-        predicted_target_y = target_coords[1] # Assume stable vertical position for simplicity
+# --- نقطة الدخول (مثال للاستخدام) ---
 
-        # Calculate distance and angle
-        delta_x = predicted_target_x - crosshair_coords[0]
-        delta_y = predicted_target_y - crosshair_coords[1]
+if __name__ == "__main__":
+    # هذا الجزء هو لأغراض العرض والتجريب.
+    # في الاستخدام الفعلي، سيتم استدعاء طرق SovereignAI من كود آخر
+    # يتولى التقاط الشاشة وإرسالها.
 
-        # Apply some smoothing/scaling factor (tune these values)
-        drag_factor_x = 1.0
-        drag_factor_y = 1.2 # Often need to drag more vertically
+    # لا يوجد عرض مرئي في هذا الكود.
+    # يتطلب هذا الكود الحصول على لقطات شاشة فعلية للعبة.
 
-        final_delta_x = delta_x * drag_factor_x
-        final_delta_y = delta_y * drag_factor_y
+    # تهيئة الذكاء الاصطناعي السيادي
+    ai = SovereignAI()
 
-        # Ensure drag is within reasonable screen bounds (though usually not an issue)
-        final_delta_x = max(-screen_width / 2, min(screen_width / 2, final_delta_x))
-        final_delta_y = max(-screen_height / 2, min(screen_height / 2, final_delta_y))
+    # --- محاكاة سيناريو ---
 
-        return int(final_delta_x), int(final_delta_y)
+    # 1. محاكاة لقطة شاشة (بدون عرضها فعلياً)
+    #    في التطبيق الحقيقي، هذه الصورة تأتي من التقاط شاشة اللعبة.
+    #    هنا، سنخلق صورة سوداء لتمثيل شاشة فارغة (للتبسيط).
+    dummy_screen_bgr = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 3), dtype=np.uint8)
 
-    def simulate_training_1v6(self, player_skill_level=0.7):
-        """
-        Simulates a 1v6 training match.
-        (Simplified for offline: random outcomes based on player skill)
-        Args:
-            player_skill_level (float): A value between 0.0 (low skill) and 1.0 (high skill).
-        Returns:
-            str: A summary of the simulated match.
-        """
-        print("\n--- Simulating 1v6 Training Match ---")
-        player_kills = 0
-        player_deaths = 0
-        bot_kills = [0] * 6
-        bot_health = [100] * 6 # Assume all bots have full health
+    # 2. محاكاة ظهور أزرار (لم يتم اكتشافها بواسطة analyzer.analyze_screen())
+    #    يمكنك وضع صور وهمية في مجلد templates/buttons/
+    #    إذا كانت القوالب موجودة، سيكتشفها analyzer.
+    #    للتجربة، سنقوم بوضع بعض البيانات الوهمية يدوياً.
 
-        # Simulate rounds or encounters
-        for encounter in range(random.randint(10, 20)): # Simulate multiple encounters
-            print(f"Encounter {encounter + 1}:")
-            active_bots = [i for i, health in enumerate(bot_health) if health > 0]
-            if not active_bots:
-                print("All bots eliminated. Training simulation complete.")
-                break
+    # محاكاة اكتشاف زر النار في موقع افتراضي
+    fire_button_img = np.zeros((50, 100, 3), dtype=np.uint8) # شكل زر وهمي
+    fire_button_rect = (SCREEN_WIDTH - 150, SCREEN_HEIGHT - 150, 100, 50) # موقع وهمي
+    dummy_screen_bgr[fire_button_rect[1]:fire_button_rect[1]+fire_button_rect[3], fire_button_rect[0]:fire_button_rect[0]+fire_button_rect[2]] = (255, 0, 0) # لون وهمي
+    # يجب إضافة هذه الصورة للـ templates path وإعادة بناء الـ analyzer إذا أردت اختبارها بشكل صحيح.
+    # حالياً، analyzer يعتمد على تحميل الصور من المسار.
 
-            # Player action
-            player_action_success = random.random() < player_skill_level
-            if player_action_success:
-                target_bot_index = random.choice(active_bots)
-                damage_dealt = random.randint(10, 100) # Damage varies
-                bot_health[target_bot_index] -= damage_dealt
-                if bot_health[target_bot_index] <= 0:
-                    print(f"  Player eliminated Bot {target_bot_index + 1}!")
-                    player_kills += 1
-                    bot_health[target_bot_index] = 0 # Mark as dead
-                else:
-                    print(f"  Player hit Bot {target_bot_index + 1} for {damage_dealt} damage.")
-            else:
-                print("  Player missed or failed action.")
+    print("\n--- Processing Game Frame 1 (Initial) ---")
+    # معالجة إطار اللعبة
+    result1 = ai.process_game_frame(dummy_screen_bgr)
+    print(f"AI Game Action: {result1.get('game_action')}")
+    print(f"Simulator State (enemies): {result1.get('simulator_state')}")
 
-            # Bot actions
-            for bot_index in active_bots:
-                bot_action_success = random.random() < (0.5 + (1 - player_skill_level) * 0.3) # Bots are slightly easier than player
-                if bot_action_success:
-                    damage_dealt = random.randint(5, 50)
-                    # Simulate player taking damage (simplified)
-                    if random.random() < 0.8: # Player doesn't always get hit
-                        print(f"  Bot {bot_index + 1} hit Player for {damage_dealt} damage!")
-                        player_deaths += 1 # Simplified: any bot hit means a 'death' for training outcome
-                        if player_deaths >= 6: # If player "dies" 6 times, simulation ends
-                            print("  Player overwhelmed. Training simulation ended.")
-                            break
-                    else:
-                        print(f"  Bot {bot_index + 1} missed Player.")
-            if player_deaths >= 6:
-                break
+    # 3. محاكاة وجود عدو قريب (سيتم الكشف عنه بواسطة DragHeadshotSystem)
+    #    لجعل drag_system يعمل، نحتاج إلى تعديل analyzer.detect_enemies()
+    #    أو أن نجهز screen_bgr بطريقة تجعله يكتشف الأعداء.
+    #    بما أن analyzer.detect_enemies() تولد أعداء عشوائيين،
+    #    فإن DragHeadshotSystem سيحاول باستمرار اكتشافهم.
 
-            time.sleep(0.1) # Simulate delay between encounters
+    # محاكاة وجود هدف للرأس (هذا يتطلب أن يكون detect_enemies() نشطاً)
+    # سنقوم بتجاوز analyzer.detect_enemies() لفترة قصيرة هنا لتمكين الاختبار.
+    def mock_detect_enemies_with_target(self, screen_bgr):
+        # نفترض أن هناك عدو في منتصف الشاشة
+        return [{"x": SCREEN_WIDTH // 2, "y": SCREEN_HEIGHT // 2, "type": "enemy"}]
+    ai.analyzer.detect_enemies = mock_detect_enemies_with_target.__get__(ai.analyzer, GameAnalyzer)
+    print("\n--- Processing Game Frame 2 (With Simulated Enemy for Headshot) ---")
+    result2 = ai.process_game_frame(dummy_screen_bgr)
+    print(f"AI Game Action: {result2.get('game_action')}")
+    print(f"Simulator State (enemies): {result2.get('simulator_state')}") # سيظل المحاكي ينتج أعداءه الخاصين
 
-        print("\n--- Training Simulation Summary ---")
-        print(f"Player Kills: {player_kills}")
-        print(f"Player Simulated 'Deaths': {player_deaths}")
-        remaining_bots = sum(1 for health in bot_health if health > 0)
-        print(f"Bots Remaining: {remaining_bots}")
-        return f"Simulation complete. Player Kills: {player_kills}, Deaths: {player_deaths}. Bots Remaining: {remaining_bots}"
+    # 4. التفاعل مع الدردشة النرجسية
+    print("\n--- Narcissistic Chat Interaction ---")
+    print("User: من أنت؟")
+    response1 = ai.chat_command("من أنت؟")
+    print(f"{ai.chat.user_name}: {response1}")
 
-    def narcissist_chat(self, message):
-        """
-        Generates a narcissistic response to a user message.
-        Args:
-            message (str): The user's message.
-        Returns:
-            str: A narcissistic reply.
-        """
-        responses = [
-            "Oh, you're talking to me? Of course you are. Who wouldn't want to hear my brilliance?",
-            "That's an interesting thought, but it would be even better if it came from me.",
-            "You're trying to make a point? Fascinating. I've already mastered it.",
-            "Yes, I heard you. Though, frankly, my own thoughts are usually more compelling.",
-            "I appreciate you sharing that. It's a good starting point for what I'm about to say.",
-            "That reminds me, have I told you about my latest incredible achievement? Let me elaborate...",
-            "You're asking for my opinion? How predictable. It's always the correct one.",
-            "Is that your observation? Mine is far more profound, naturally.",
-            "It's adorable you think you've come up with that. I've been contemplating it for ages.",
-            "Thank you for the input. It has been duly noted and will be compared against my own superior intellect."
-        ]
-        reply = random.choice(responses)
-        self.chat_history.append({"user": message, "ai": reply})
-        return reply
+    print("\nUser: كيف حالك؟")
+    response2 = ai.chat_command("كيف حالك؟")
+    print(f"{ai.chat.user_name}: {response2}")
 
-    def get_chat_history(self):
-        """
-        Retrieves the encrypted chat history.
-        Returns:
-            list: A list of encrypted chat messages.
-        """
-        encrypted_history = [self._encrypt_message(f"User: {msg['user']} | AI: {msg['ai']}") for msg in self.chat_history]
-        return encrypted_history
+    print("\nUser: أنا أحبك.")
+    response3 = ai.chat_command("أنا أحبك.")
+    print(f"{ai.chat.user_name}: {response3}")
 
-    def decrypt_chat_history(self, encrypted_history):
-        """
-        Decrypts a list of encrypted chat messages.
-        Args:
-            encrypted_history (list): A list of hex-encoded encrypted messages.
-        Returns:
-            list: A list of decrypted chat messages.
-        """
-        decrypted_messages = []
-        for encrypted_msg in encrypted_history:
-            try:
-                decrypted_messages.append(self._decrypt_message(encrypted_msg))
-            except Exception as e:
-                decrypted_messages.append(f"[Decryption Error: {e}]")
-        return decrypted_messages
+    print("\n--- Decrypted Chat History ---")
+    print(ai.get_decrypted_chat_history())
 
-if __name__ == '__main__':
-    # Example Usage
-    ai_system = FreeFireAITools()
-
-    print("--- Testing Encryption/Decryption ---")
-    original_message = "This is a secret message."
-    encrypted = ai_system._encrypt_message(original_message)
+    # 5. اختبار تشفير / فك تشفير (باستخدام مفتاح عشوائي تم إنشاؤه)
+    print("\n--- Cipher Test ---")
+    original_message = "This is a secret message for testing the cipher."
     print(f"Original: {original_message}")
-    print(f"Encrypted: {encrypted}")
-    decrypted = ai_system._decrypt_message(encrypted)
+    encrypted = ai.cipher.encrypt(original_message)
+    print(f"Encrypted (hex:hash): {encrypted}")
+    decrypted = ai.cipher.decrypt(encrypted)
     print(f"Decrypted: {decrypted}")
-    print("-" * 30)
+    assert original_message == decrypted
+    print("Cipher test passed.")
 
-    print("--- Testing Narcissist Chat ---")
-    print(f"User: Hello there!")
-    print(f"AI: {ai_system.narcissist_chat('Hello there!')}")
-    print(f"User: What do you think of my idea?")
-    print(f"AI: {ai_system.narcissist_chat('What do you think of my idea?')}")
-    print(f"User: You are very intelligent.")
-    print(f"AI: {ai_system.narcissist_chat('You are very intelligent.')}")
+    # اختبار مع بيانات مشفرة خاطئة (لإظهار التحقق من الهاش)
+    print("\n--- Cipher Integrity Test ---")
+    parts = encrypted.split(":")
+    corrupted_encrypted = parts[0][:-1] + "X" + ":" + parts[1] # تغيير حرف واحد في البيانات المشفرة
+    decrypted_corrupted = ai.cipher.decrypt(corrupted_encrypted)
+    print(f"Attempt to decrypt corrupted data: {decrypted_corrupted}")
+    assert decrypted_corrupted is None
+    print("Cipher integrity test passed (failed decryption of corrupted data).")
 
-    encrypted_history = ai_system.get_chat_history()
-    print("\nEncrypted Chat History:")
-    for msg in encrypted_history:
-        print(msg)
-
-    decrypted_history = ai_system.decrypt_chat_history(encrypted_history)
-    print("\nDecrypted Chat History:")
-    for msg in decrypted_history:
-        print(msg)
-    print("-" * 30)
-
-    print("--- Testing Drag Headshot Calculation ---")
-    # Simulate enemy head at (600, 300), crosshair at (500, 350)
-    target = (600, 300)
-    crosshair = (500, 350)
-    screen_w, screen_h = 1280, 720
-    drag_move = ai_system.optimize_drag_headshot(target, crosshair, screen_w, screen_h)
-    print(f"Target: {target}, Crosshair: {crosshair}")
-    print(f"Optimal Drag Movement (dx, dy): {drag_move}")
-    print("-" * 30)
-
-    print("--- Testing Training Simulation ---")
-    simulation_result = ai_system.simulate_training_1v6(player_skill_level=0.8)
-    print(f"\nSimulation Outcome: {simulation_result}")
-    print("-" * 30)
-
-    print("--- Testing Button Analysis (Mock Screen) ---")
-    # Create a dummy screen capture for button analysis
-    mock_screen = np.zeros((720, 1280, 3), dtype=np.uint8)
-    # Draw a red circle for shoot button
-    cv2.circle(mock_screen, (1100, 600), 40, (0, 0, 255), -1)
-    # Draw a blue rectangle for jump button
-    cv2.rectangle(mock_screen, (100, 500), (180, 580), (255, 0, 0), -1)
-
-    detected_buttons = ai_system.analyze_freefire_buttons(mock_screen)
-    print(f"Detected Buttons: {detected_buttons}")
-    print("-" * 30)
+    print("\n--- Sovereign AI Offline Core Logic Ready ---")
