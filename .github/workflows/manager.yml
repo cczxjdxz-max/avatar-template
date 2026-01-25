@@ -1,57 +1,62 @@
-name: 1. The Sovereign Architect (IQ 250)
+name: 1. The Sovereign Physician (Manager)
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 */5 * * *'
+  repository_dispatch:
+    types: [doctor_needed, start_mission]
 
 jobs:
-  forge_the_god_ai:
+  heal_and_order:
     runs-on: ubuntu-latest
     steps:
-      - name: "Accessing Sovereign Memory"
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          repository: cczxjdxz-max/Full
-          token: ${{ secrets.PAT }}
+          python3-version: '3.9'
 
-      - name: "Gemini IQ 250: Dissection & Hyper-Training"
+      - name: Install AI Brain
+        run: pip install google-generativeai
+
+      - name: "Doctor Analysis & Repair"
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          PROMPT="Act as an IQ 250 AI Architect. 
-          Target Game: Free Fire. 
-          Mission: 
-          1. DISSECT: Reverse-engineer 'Full Control' physics, 11-button layout, and spread reset timing.
-          2. TRAIN: Simulate 5 trillion matches in a virtual sandbox.
-          3. ENTITY: Generate 'core_logic.py' in Python. 
-          Features: Smart movement (jiggles), Video Analysis module, Narcissistic persona, speaks Fusha, understands Arabic dialects. 
-          Output ONLY the Python code."
+          python3 << 'EOF'
+          import google.generativeai as genai
+          import os
 
-          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
-               -H "Content-Type: application/json" \
-               -X POST \
-               -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
-          
-          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
+          genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+          model = genai.GenerativeModel('gemini-1.5-flash')
 
-      - name: "Commit The Sovereign Logic"
+          def diagnose():
+              if not os.path.exists("error_report.txt"):
+                  print("No sickness detected. Starting fresh mission.")
+                  return "Create a basic Kivy 'Hello World' app."
+
+              with open("error_report.txt", "r") as f:
+                  logs = f.read()
+              
+              prompt = f"The following Android build error occurred: {logs}. Provide the corrected version of buildozer.spec or the necessary fix in core_logic.py. Give me ONLY the code."
+              response = model.generate_content(prompt)
+              return response.text
+
+          treatment = diagnose()
+          # تطبيق الإصلاح على الملفات
+          with open("core_logic.py", "w") as f:
+              f.write(treatment)
+          EOF
+
+      - name: "Apply Treatment to Repository"
         run: |
-          git config --global user.name "Lelouch-Architect"
-          git config --global user.email "architect@sovereign.ai"
-          git add core_logic.py
-          git commit -m "5 Trillion Training Cycles Complete. Entity Evolved." || exit 0
-          git push origin main --force
+          git config --global user.name "Sovereign-Physician"
+          git config --global user.email "doctor@sovereign.ai"
+          git add .
+          git commit -m "Treatment applied: Fixing build errors and retrying." || echo "No changes to commit"
+          git push origin main
 
-      - name: "Wake Up The Executor (Shielded)"
-        env:
-          PAT: ${{ secrets.PAT }}
+      - name: "Re-send Patient to Surgery"
         run: |
-          # تشفير الرابط لمنع تلاعب المحرر بالنصوص (Base64)
-          ENCODED_URL="aHR0cHM6Ly9hcGkuZ2l0aHViLmNvbS9yZXBvcy9jY3p4amR4ei1tYXgvRnVsbC9kaXNwYXRjaGVz"
-          FINAL_URL=$(echo "$ENCODED_URL" | base64 --decode)
-          
-          curl -L -X POST "$FINAL_URL" \
-          -H "Authorization: Bearer $PAT" \
-          -H "Accept: application/vnd.github+json" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          -d '{"event_type": "continue_mission"}'
+          curl -X POST -H "Authorization: token ${{ secrets.PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d '{"event_type": "continue_mission"}'
