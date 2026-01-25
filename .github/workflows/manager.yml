@@ -1,37 +1,61 @@
-name: 1. The Sovereign Physician (Task Monitor)
+name: 1. The Sovereign Physician (Supreme Leader)
 on:
   workflow_dispatch:
   repository_dispatch:
     types: [sequential_heal_request]
 
 jobs:
-  analyze_all_tasks:
+  leadership:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Multi-Task Healing"
+      - name: "Self-Healing Brain"
         env:
           API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          TASK_REPORTS: ${{ github.event.client_payload.task_reports }} # تقرير بكل المهام
+          REPORTS: ${{ github.event.client_payload.task_reports || 'System Initializing' }}
         run: |
-          PROMPT="أنت الذكاء السيادي. إليك تقرير كامل عن عدة مهام (تسجيل دخول، محاكاة، اختبار طلقات).
-          بعض المهام فشلت وبعضها نجح. التقرير: $TASK_REPORTS.
-          المطلوب: إصلاح الكود البرمجي (main.py) ليعالج الأخطاء في المهام الفاشلة دون تخريب المهام الناجحة. 
-          حافظ على موسيقى الهيبة ونرجسية الواجهة."
+          # بناء البرومبت السيادي
+          echo "أنت الذكاء السيادي. المهمة: إنشاء ملف main.py (Kivy/OpenCV).
+          المواصفات: واجهة سوداء وذهبية، موسيقى ملحمية، محاكاة 5 تريليون دورة. 
+          تقرير المهام الحالي: $REPORTS. 
+          المطلوب: إصلاح الكود ليتجاوز المهام الفاشلة ويضمن 'كل طلقة أحمر' في فري فاير (حساب ضيف). أجب بالكود فقط." > prompt.txt
 
-          # استدعاء Gemini لمعالجة التقرير الشامل
+          PROMPT=$(cat prompt.txt)
+
+          # استدعاء Gemini مع حماية البيانات
           curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${API_KEY}" \
           -H "Content-Type: application/json" \
           -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
 
-          python3 -c "import json, re; d=json.load(open('response.json')); c=d['candidates'][0]['content']['parts'][0]['text']; print(re.sub(r'```python|```', '', c).strip())" > main.py
+          # استخراج الكود بأمان
+          python3 << 'EOF'
+          import json, re, sys
+          try:
+              with open('response.json', 'r') as f:
+                  data = json.load(f)
+              if 'candidates' not in data:
+                  print("Error from Gemini")
+                  sys.exit(1)
+              content = data['candidates'][0]['content']['parts'][0]['text']
+              clean_code = re.sub(r'```python|```', '', content).strip()
+              with open('main.py', 'w') as f_out:
+                  f_out.write(clean_code)
+          except Exception as e:
+              sys.exit(1)
+          EOF
 
-      - name: "Push & Re-Trigger"
+      - name: "Inject and Trigger"
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
+          git config --global user.name "Sovereign-Leader"
           git clone "https://${PAT_TOKEN}@github.com/${{ github.repository_owner }}/Full.git" temp_full
           cp main.py temp_full/main.py
-          cd temp_full && git add . && git commit -m "Leader: Multi-task healing applied" && git push origin main
-          curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
+          cd temp_full
+          # ملف الإعدادات الثابت
+          echo "[app]\ntitle=Sovereign AI\npackage.name=sovereign.ai\nrequirements=python3,kivy,opencv,numpy,android\nandroid.api=33\nandroid.ndk=25b\nandroid.arch=arm64-v8a\nandroid.permissions=INTERNET,CAMERA,RECORD_AUDIO" > buildozer.spec
+          git add . && git commit -m "Auto-Heal: Logic Updated" && git push origin main
+          
+          curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' \
+          "https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
