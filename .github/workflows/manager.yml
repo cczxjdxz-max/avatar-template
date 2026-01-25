@@ -16,10 +16,11 @@ jobs:
         run: |
           PROMPT="أنت الذكاء السيادي (IQ 250). المطلوب بناء 'core_logic.py' يعمل OFFLINE تماماً. يتضمن: ذكاء محلي (NumPy/OpenCV) لتحليل أزرار فري فاير ونظام Drag Headshot، محاكي تدريب 1 ضد 6، تشفير داخلي، ودردشة نرجسية. أجب بالكود البرمجي الصافي فقط."
 
-          # بناء رابط جوجل برمجياً
-          G_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
+          # بناء رابط جوجل بطريقة التجزئة الآمنة
+          G_PART1="https://generativelanguage.googleapis.com"
+          G_PART2="/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
           
-          curl -X POST "$G_URL" \
+          curl -X POST "${G_PART1}${G_PART2}" \
                -H "Content-Type: application/json" \
                -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
 
@@ -41,7 +42,6 @@ jobs:
 
       - name: "Commit & Wake Up Executor"
         env:
-          # نمرر المتغيرات هنا ونترك الـ Shell يركب الرابط
           REPO_NAME: ${{ github.repository }}
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
@@ -51,12 +51,15 @@ jobs:
           git commit -m "Architect: On-Device AI Core Finalized." || echo "No changes"
           git push origin main
           
-          # بناء الرابط برمجياً بالكامل لتفادي أخطاء Markdown
-          BASE_URL="[https://api.github.com/repos](https://api.github.com/repos)"
-          FULL_URL="${BASE_URL}/${REPO_NAME}/dispatches"
+          # بناء الرابط بطريقة التقطيع لمنع حقن Markdown نهائياً
+          P1="https"
+          P2="api.github.com"
+          P3="repos"
           
-          curl -X POST \
+          CLEAN_URL="${P1}://${P2}/${P3}/${REPO_NAME}/dispatches"
+          
+          curl -v -X POST \
                -H "Authorization: token ${PAT_TOKEN}" \
                -H "Accept: application/vnd.github.v3+json" \
                -d '{"event_type": "execute_build"}' \
-               "${FULL_URL}"
+               "${CLEAN_URL}"
