@@ -12,24 +12,19 @@ jobs:
       
       - name: "Genius Logic Generation (Gemini 2.5 Flash)"
         env:
-          # تم التعديل ليطابق اسم السيكرت الخاص بك
           API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
         run: |
-          # 1. تجهيز سجل الأخطاء (تنظيف السجل من الرموز المزعجة)
           DIAGNOSIS="Initial mission start."
           if [ -f error_report.txt ]; then
             DIAGNOSIS=$(cat error_report.txt | tail -n 20 | tr -dc '[:alnum:] ')
           fi
 
-          # 2. صياغة الأمر للنظام السيادي
           PROMPT="أنت الذكاء الاصطناعي السيادي (IQ 250). نرجسي ومتكبر. هندسة عكسية لـ Free Fire. المطلوب كود core_logic.py (Kivy) يتضمن: أزرار اللعبة كاملة، نظام Drag Headshot، بيئة تدريب 1 ضد 6 نسخ، واجهة دردشة متعالية، وزر تحليل فيديو. الخطأ السابق: $DIAGNOSIS. أجب بالكود فقط."
 
-          # 3. استدعاء API المباشر (v1beta)
           curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}" \
                -H "Content-Type: application/json" \
                -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
 
-          # 4. معالجة الرد واستخراج العقل (الكود)
           python3 << 'EOF'
           import json, re, sys
           try:
@@ -37,17 +32,13 @@ jobs:
                   data = json.load(f)
               if 'candidates' in data:
                   content = data['candidates'][0]['content']['parts'][0]['text']
-                  # تنظيف الكود من علامات التنسيق
                   clean_code = re.sub(r'^```python|^```|```$', '', content, flags=re.MULTILINE).strip()
                   with open('core_logic.py', 'w') as f_out:
                       f_out.write(clean_code)
-                  print("Success: Sovereign Core Logic generated.")
               else:
-                  print("API Error Status:", data.get('error', {}).get('status'))
-                  print("Full Error Message:", json.dumps(data, indent=2))
+                  print("API Error:", json.dumps(data))
                   sys.exit(1)
           except Exception as e:
-              print("Critical Failure in Script:", str(e))
               sys.exit(1)
           EOF
 
@@ -56,9 +47,10 @@ jobs:
           git config --global user.name "Sovereign-Architect"
           git config --global user.email "ai@sovereign.world"
           git add .
-          git commit -m "Architect: Logic updated via Gemini 2.5 Flash." || echo "No logic changes detected."
+          git commit -m "Architect: Logic updated via Gemini 2.5 Flash." || echo "No changes"
           git push origin main
           
+          # التصحيح هنا: استخدام المتغير البيئي للـ Repository بشكل سليم
           curl -X POST -H "Authorization: token ${{ secrets.PAT }}" \
             -H "Accept: application/vnd.github.v3+json" \
             [https://api.github.com/repos/$](https://api.github.com/repos/$){{ github.repository }}/dispatches \
