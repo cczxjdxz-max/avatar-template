@@ -18,12 +18,12 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          PROMPT="Act as an Elite AI Architect (IQ 250). 
+          PROMPT="Act as an IQ 250 AI Architect. 
           Target Game: Free Fire. 
           Mission: 
           1. DISSECT: Reverse-engineer 'Full Control' physics, 11-button layout, and spread reset timing.
           2. TRAIN: Simulate 5 trillion matches in a virtual sandbox.
-          3. ENTITY: Generate 'core_logic.py' in Python. 
+          3. ENTITY: Generate 'core_logic.py'. 
           Features: Smart movement (jiggles), Video Analysis module, Narcissistic persona, speaks Fusha, understands Arabic dialects. 
           Output ONLY the Python code."
 
@@ -39,15 +39,20 @@ jobs:
           git config --global user.name "Lelouch-Architect"
           git config --global user.email "architect@sovereign.ai"
           git add core_logic.py
-          git commit -m "5 Trillion Training Cycles Complete. Entity Evolved." || exit 0
+          git commit -m "5 Trillion Training Cycles Complete. Entity Born." || exit 0
           git push origin main --force
 
-      - name: "Wake Up The Executor (Clean Version)"
+      - name: "Wake Up The Executor (Immune Version)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          API_URL="[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)"
-          curl -X POST "$API_URL" \
+          # بناء الرابط يدوياً لمنع ظهور الأقواس المربعة اللعينة
+          BASE="[https://api.github.com](https://api.github.com)"
+          REPO="/repos/cczxjdxz-max/Full/dispatches"
+          URL="${BASE}${REPO}"
+          
+          curl -L -X POST "$URL" \
           -H "Authorization: Bearer $PAT" \
           -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
           -d '{"event_type": "continue_mission"}'
