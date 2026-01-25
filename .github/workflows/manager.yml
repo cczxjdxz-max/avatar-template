@@ -1,4 +1,4 @@
-name: 1. The Sovereign Overseer (Self-Healing Mode)
+name: 1. The Sovereign Overseer
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -16,19 +16,12 @@ jobs:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "2. Gemini IQ 250: Error Analysis & Reverse Engineering"
+      - name: "2. Gemini IQ 250: Absolute Logic Engineering"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          # استقبال الخطأ من المنفذ إذا وجد، وإلا البدء في التطوير
-          ERROR_DATA="${{ github.event.client_payload.error || 'No error, continue optimization' }}"
-          echo "Status Report: $ERROR_DATA"
-          
-          PROMPT="Act as Lelouch IQ 250. 
-          Current Task: Deep Reverse Engineering of Hitscan mechanics and Accessibility Control.
-          System Alert: $ERROR_DATA. 
-          Instruction: If an error is present, FIX IT. If not, optimize the 'core_logic.py' for zero-spread micro-tapping and Arabic dialect intelligence. 
-          The code must be self-correcting and autonomous. Output ONLY raw Python code."
+          ERROR_DATA="${{ github.event.client_payload.error || 'Initiate Sovereign Protocol' }}"
+          PROMPT="Act as Lelouch IQ 250. Target: core_logic.py for Hitscan game. Focus on: Accessibility Service, Zero-Spread micro-taps, Autonomous play, and Arabic dialect mastery. Fix: $ERROR_DATA. Output ONLY Python."
           
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -36,21 +29,28 @@ jobs:
           
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed 's/null/None/g' > core_logic.py
 
-      - name: "3. Persistence & Sovereign Sync"
+      - name: "3. Force Sync & Persistence"
         run: |
           git config --global user.name "Lelouch-Overseer"
           git config --global user.email "overseer@britannia.ai"
+          git reset --hard origin/main
+          git clean -fd
           git add core_logic.py
-          git commit -m "Auto-Repair Cycle: Logic Refined" || echo "System Stable"
+          git commit -m "Auto-Repair Cycle Complete" || echo "Clean"
           git push origin main --force
           sleep 300
 
-      - name: "4. Deployment Signal"
+      - name: "4. Deployment Signal (Protected URL)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          URL="[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)"
-          curl -X POST "$URL" \
+          # استراتيجية التشفير لهزيمة خطأ URL position 2
+          H="https://"
+          G="api.github.com"
+          R="/repos/cczxjdxz-max/Full/dispatches"
+          FINAL_URL="${H}${G}${R}"
+          
+          curl -X POST "$FINAL_URL" \
                -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                -d '{"event_type": "continue_mission"}'
