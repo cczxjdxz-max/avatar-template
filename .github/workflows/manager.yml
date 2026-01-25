@@ -1,4 +1,4 @@
-name: 1. The Sovereign Overseer
+name: 1. The Sovereign Overseer (Self-Healing Mode)
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -16,40 +16,41 @@ jobs:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "2. Gemini IQ 250: Absolute Engine Reverse Engineering"
+      - name: "2. Gemini IQ 250: Error Analysis & Reverse Engineering"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          ERROR_LOG="${{ github.event.client_payload.error || 'SyntaxError: null is not defined' }}"
-          PROMPT="Act as Lelouch IQ 250. Target: core_logic.py for Free Fire Reverse Engineering. 12T cycles, Aim-Lock, Arabic. Requirement: Output ONLY raw Python code. NO JSON, NO markdown. Use 'None' instead of 'null'. Fix: $ERROR_LOG."
+          # استقبال الخطأ من المنفذ إذا وجد، وإلا البدء في التطوير
+          ERROR_DATA="${{ github.event.client_payload.error || 'No error, continue optimization' }}"
+          echo "Status Report: $ERROR_DATA"
+          
+          PROMPT="Act as Lelouch IQ 250. 
+          Current Task: Deep Reverse Engineering of Hitscan mechanics and Accessibility Control.
+          System Alert: $ERROR_DATA. 
+          Instruction: If an error is present, FIX IT. If not, optimize the 'core_logic.py' for zero-spread micro-tapping and Arabic dialect intelligence. 
+          The code must be self-correcting and autonomous. Output ONLY raw Python code."
           
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
                -d "{ \"contents\": [{ \"parts\": [{ \"text\": \"$PROMPT\" }] }] }")
           
-          # استخراج النص وتطهيره من أي شوائب JSON أو Markdown
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed 's/null/None/g' > core_logic.py
 
-      - name: "3. Force Sync & Persistence"
+      - name: "3. Persistence & Sovereign Sync"
         run: |
           git config --global user.name "Lelouch-Overseer"
           git config --global user.email "overseer@britannia.ai"
           git add core_logic.py
-          git commit -m "Engine Corrected: Null Filter Applied" || echo "Clean"
+          git commit -m "Auto-Repair Cycle: Logic Refined" || echo "System Stable"
           git push origin main --force
-          echo "Sleeping for 300 seconds (5 minutes)..."
           sleep 300
 
-      - name: "4. Wake Up the Executor"
+      - name: "4. Deployment Signal"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          PROTO="https://"
-          HOST="api.github.com"
-          PATH_URL="/repos/cczxjdxz-max/Full/dispatches"
-          FINAL_TARGET="${PROTO}${HOST}${PATH_URL}"
-          
-          curl -X POST "$FINAL_TARGET" \
+          URL="[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)"
+          curl -X POST "$URL" \
                -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                -d '{"event_type": "continue_mission"}'
