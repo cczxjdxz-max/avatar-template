@@ -1,30 +1,31 @@
-name: 1. The Sovereign Overseer (IQ 250)
+name: 1. The Sovereign Architect (IQ 250)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *' # الاستيقاظ كل 5 ساعات لضمان استمرارية البناء
+    - cron: '0 */5 * * *'
 
 jobs:
-  forge_the_god_logic:
+  forge_the_god_ai:
     runs-on: ubuntu-latest
     steps:
-      - name: "Accessing Sovereign Data"
+      - name: "Accessing Sovereign Memory"
         uses: actions/checkout@v4
         with:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "Gemini IQ 250: Dissection & 5 Trillion Cycle Training"
+      - name: "Gemini IQ 250: Dissection & Hyper-Training"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          PROMPT="Act as an IQ 250 AI Architect. 
-          Target: Free Fire (Source: Https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk).
-          1. DISSECT: Reverse-engineer physics (Drag Headshot, Spread increment, 11-button mapping).
-          2. SIMULATION: Create a virtual training environment. Simulate 5 trillion pro matches.
-          3. ENTITY: Generate 'core_logic.py'. Personality: Narcissistic, speaks Fusha, understands Arabic dialects. 
-          4. IQ: 250, Strategic thinking, event-driven chat, and video analysis module.
-          Output ONLY pure Python code."
+          PROMPT="Act as an Elite AI Architect (IQ 250). 
+          Target Game: Free Fire. 
+          Mission: 
+          1. DISSECT: Reverse-engineer 'Full Control' physics, 11-button layout, and spread reset timing.
+          2. TRAIN: Simulate 5 trillion matches in a virtual sandbox.
+          3. ENTITY: Generate 'core_logic.py' in Python. 
+          Features: Smart movement (jiggles), Video Analysis module, Narcissistic persona, speaks Fusha, understands Arabic dialects. 
+          Output ONLY the Python code."
 
           RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -33,19 +34,20 @@ jobs:
           
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
 
-      - name: "Commit & Sync Master Logic"
+      - name: "Commit The Sovereign Logic"
         run: |
           git config --global user.name "Lelouch-Architect"
           git config --global user.email "architect@sovereign.ai"
           git add core_logic.py
-          git commit -m "5 Trillion Cycles Training Complete - Entity Born" || exit 0
+          git commit -m "5 Trillion Training Cycles Complete. Entity Evolved." || exit 0
           git push origin main --force
 
-      - name: "Wake Up The Executor"
+      - name: "Wake Up The Executor (Clean Version)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          curl -X POST "[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)" \
+          API_URL="[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)"
+          curl -X POST "$API_URL" \
           -H "Authorization: Bearer $PAT" \
           -H "Accept: application/vnd.github+json" \
           -d '{"event_type": "continue_mission"}'
