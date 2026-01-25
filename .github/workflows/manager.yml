@@ -12,36 +12,43 @@ jobs:
 
       - name: "Sovereign AI Reasoning"
         env:
-          API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          # تم التعديل للاسم الصحيح هنا
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           REPORTS: ${{ github.event.client_payload.task_reports || 'System Startup' }}
         run: |
-          # بناء الطلب باستخدام بايثون لضمان سلامة الـ JSON
           python3 << 'EOF'
-          import os, json, requests
+          import os, json, requests, sys
 
-          api_key = os.getenv('API_KEY')
+          # جلب المفتاح بالاسم الصحيح
+          api_key = os.getenv('GOOGLE_API_KEY')
           reports = os.getenv('REPORTS')
           
+          if not api_key:
+              print("Critical Error: GOOGLE_API_KEY is missing in Secrets!")
+              sys.exit(1)
+
           prompt_text = f"أنت الذكاء السيادي. المهمة: كود Python لملف main.py (Kivy/OpenCV). المواصفات: واجهة سوداء وذهبية نرجسية، موسيقى هيبة، محاكاة 5 تريليون دورة. التقرير: {reports}. أصلح أي خطأ لضمان 'كل طلقة أحمر' في فري فاير (حساب ضيف). أجب بالكود فقط."
           
-          # استخدام v1beta و Gemini 2.5 Flash Lite
           url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={api_key}"
           payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
           
-          response = requests.post(url, json=payload)
-          with open('response.json', 'w') as f:
-              f.write(response.text)
-          EOF
-
-          # استخراج الكود وحقنه
-          python3 << 'EOF'
-          import json, re, sys
           try:
-              data = json.load(open('response.json'))
-              content = data['candidates'][0]['content']['parts'][0]['text']
-              with open('main.py', 'w') as f:
-                  f.write(re.sub(r'```python|```', '', content).strip())
-          except:
+              response = requests.post(url, json=payload)
+              data = response.json()
+              
+              if 'candidates' in data:
+                  content = data['candidates'][0]['content']['parts'][0]['text']
+                  # تنظيف وحفظ الكود
+                  import re
+                  clean_code = re.sub(r'```python|```', '', content).strip()
+                  with open('main.py', 'w') as f:
+                      f.write(clean_code)
+                  print("Success: Sovereign Code Generated")
+              else:
+                  print("API Error Response:", json.dumps(data, indent=2))
+                  sys.exit(1)
+          except Exception as e:
+              print(f"Network or JSON Error: {e}")
               sys.exit(1)
           EOF
 
