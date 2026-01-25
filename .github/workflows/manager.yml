@@ -1,6 +1,6 @@
 name: 1. The Sovereign Physician (Supreme Commander)
 on:
-  workflow_dispatch: # زر التشغيل اليدوي من قسم Actions
+  workflow_dispatch:
   repository_dispatch:
     types: [sequential_heal_request, vision_heal_request]
 
@@ -17,11 +17,9 @@ jobs:
         run: |
           python3 << 'EOF'
           import os, json, requests, sys, re
-
           api_key = os.getenv('GOOGLE_API_KEY')
           reports = os.getenv('REPORTS')
           
-          # محاولة جلب الذكاء من عدة موديلات لكسر الحظر
           models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"]
           prompt = f"أنت الذكاء السيادي. المهمة: كود Python لملف main.py (Kivy/OpenCV). المواصفات: واجهة سوداء وذهبية، موسيقى ملحمية، محاكاة 5 تريليون دورة، طلقات حمراء فري فاير. التقرير: {reports}. أجب بالكود فقط."
           
@@ -34,24 +32,16 @@ jobs:
                       data = res.json()
                       if 'candidates' in data:
                           content = data['candidates'][0]['content']['parts'][0]['text']
-                          with open('main.py', 'w') as f: f.write(re.sub(r'```python|```', '', content).strip())
+                          code = re.sub(r'```python|```', '', content).strip()
+                          with open('main.py', 'w') as f: f.write(code)
                           print(f"Captured by {model}")
                           success = True; break
                   except: continue
-
+          
           if not success:
               print("Using Sovereign Backup Template...")
-              backup = """
-from kivy.app import App
-from kivy.uix.label import Label
-from kivy.core.window import Window
-class SovereignAI(App):
-    def build(self):
-        Window.clearcolor = (0, 0, 0, 1)
-        return Label(text='[color=FFD700][b]SOVEREIGN AI: READY[/b][/color]\\n[size=20]Wait for Battle...[/size]', markup=True, font_size='32sp')
-if __name__ == '__main__': SovereignAI().run()
-"""
-              with open('main.py', 'w') as f: f.write(backup.strip())
+              backup = "from kivy.app import App\nfrom kivy.uix.label import Label\nfrom kivy.core.window import Window\nclass SovereignAI(App):\n    def build(self):\n        Window.clearcolor = (0, 0, 0, 1)\n        return Label(text='[color=FFD700][b]SOVEREIGN AI: READY[/b][/color]\\n[size=20]Wait for Battle...[/size]', markup=True, font_size='32sp')\nif __name__ == '__main__': SovereignAI().run()"
+              with open('main.py', 'w') as f: f.write(backup)
           EOF
 
       - name: "Sync to Executor"
