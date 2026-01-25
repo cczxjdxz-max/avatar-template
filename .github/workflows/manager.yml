@@ -1,4 +1,4 @@
-name: 1. Supreme Sovereign Physician (Ultimate Controller)
+name: 1. Supreme Sovereign Physician (Kajitan Edition)
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -10,56 +10,63 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Total System Reasoning"
+      - name: "Total System Reasoning (Kajitan Logic)"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          REPORTS: ${{ github.event.client_payload.task_reports || 'System Startup' }}
+          REPORTS: ${{ github.event.client_payload.task_reports || 'Initial Deployment' }}
         run: |
           python3 << 'EOF'
-          import os, json, requests, sys, re
+          import os, json, requests, re
+
           api_key = os.getenv('GOOGLE_API_KEY')
           reports = os.getenv('REPORTS')
           
-          # البرومبت الآن يطلب تصحيح "بيئة العمل" كاملة
-          prompt = f"أنت المهندس السيادي العظيم. تقرير الفشل: {reports}. المطلوب إصلاح شامل: 1- كود main.py 2- إعدادات buildozer.spec 3- أوامر الشل في الـ workflow. تأكد من حل مشاكل Cython و long و NDK. أجب بصيغة JSON تحتوي على الحقول الثلاثة فقط."
+          # برومبت كاجيتان الاحترافي
+          prompt = f"""
+          أنت المهندس السيادي. المطلوب إصلاح وإنتاج تطبيق 'كاجيتان' الاحترافي.
+          المواصفات:
+          1. main.py: واجهة Kivy سوداء وذهبية نرجسية، تأثيرات بصرية فخمة، نظام تصويب OpenCV يحاكي 'كل طلقة أحمر'.
+          2. buildozer.spec: إعدادات كاملة (NDK 25b, API 33, Arm64-v8a).
+          3. executor.yml: نظام بناء يستخدم 'Cython<3.0' لتجنب أخطاء long.
+          تقرير الفشل الأخير: {reports}.
+          أجب بصيغة JSON فقط تحتوي على: 'main_py', 'spec', 'workflow'.
+          """
           
           url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-          # طلب الرد بصيغة JSON لسهولة التوزيع
-          payload = {
-              "contents": [{"parts": [{"text": prompt}]}],
-              "generationConfig": {"response_mime_type": "application/json"}
-          }
           
+          # كود كاجيتان الاحتياطي (في حال فشل الـ AI)
+          kj_main = "from kivy.app import App\nfrom kivy.uix.boxlayout import BoxLayout\nfrom kivy.uix.label import Label\nfrom kivy.core.window import Window\nfrom kivy.clock import Clock\nclass KajitanUI(BoxLayout):\n    def __init__(self, **kwargs):\n        super().__init__(**kwargs)\n        self.orientation = 'vertical'\n        Window.clearcolor = (0, 0, 0, 1)\n        self.add_widget(Label(text='[b][color=FFD700]KAJITAN SOVEREIGN[/color][/b]', markup=True, font_size='40sp'))\n        self.status = Label(text='Scanning Field...', font_size='18sp')\n        self.add_widget(self.status)\n        Clock.schedule_interval(self.update, 0.1)\n    def update(self, dt):\n        self.status.text = 'Calculating 5 Trillion Cycles... [color=FF0000]AIM LOCKED[/color]'\n        self.status.markup = True\nclass KajitanApp(App):\n    def build(self):\n        return KajitanUI()\nif __name__ == '__main__': KajitanApp().run()"
+          
+          kj_spec = "[app]\ntitle = Kajitan Sovereign\npackage.name = kajitan.ai\nsource.dir = .\nversion = 2.5.0\nrequirements = python3,kivy,opencv,numpy,android\nandroid.archs = arm64-v8a\nandroid.api = 33\nandroid.ndk = 25b\nandroid.permissions = INTERNET,CAMERA"
+          
+          kj_workflow = "name: 2. Combat Executor\non:\n  repository_dispatch:\n    types: [execute_build]\njobs:\n  execution:\n    runs-on: ubuntu-22.04\n    steps:\n      - uses: actions/checkout@v4\n      - name: Setup\n        run: |\n          sudo apt update && sudo apt install -y python3-pip zip unzip build-essential cmake\n          pip3 install --user --upgrade \"Cython<3.0\" buildozer virtualenv\n      - name: Build\n        run: |\n          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip\n          unzip -q android-ndk-r25b-linux.zip\n          export APP_ANDROID_NDK_PATH=$(pwd)/android-ndk-r25b\n          yes | buildozer android debug\n      - uses: actions/upload-artifact@v4\n        with:\n          name: Kajitan-Final-APK\n          path: bin/*.apk"
+
           try:
-              res = requests.post(url, json=payload, timeout=30).json()
-              # هنا نفترض أن الذكاء سيعيد JSON فيه الملفات الثلاثة
-              raw_data = res['candidates'][0]['content']['parts'][0]['text']
-              data = json.loads(raw_data)
-              with open('main.py', 'w') as f: f.write(data.get('main_py', '# error'))
-              with open('buildozer.spec', 'w') as f: f.write(data.get('spec', ''))
-              with open('executor.yml', 'w') as f: f.write(data.get('workflow', ''))
-          except:
-              # في حال فشل الذكاء، نحقن "كود النجاة" يدوياً
-              print("AI fallback initiated...")
+              res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30).json()
+              raw_text = res['candidates'][0]['content']['parts'][0]['text']
+              json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+              if json_match:
+                  data = json.loads(json_match.group())
+                  kj_main = data.get('main_py', kj_main)
+                  kj_spec = data.get('spec', kj_spec)
+                  kj_workflow = data.get('workflow', kj_workflow)
+          except: print("AI Quota hit or error - Using Master Kajitan Template")
+
+          with open('main.py', 'w') as f: f.write(kj_main)
+          with open('buildozer.spec', 'w') as f: f.write(kj_spec)
+          with open('executor.yml', 'w') as f: f.write(kj_workflow)
           EOF
 
-      - name: "Deep Injection (Correcting every cm)"
+      - name: "Inject Kajitan Core"
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
           git config --global user.name "Sovereign-Leader"
-          git clone "https://${PAT_TOKEN}@github.com/${{ github.repository_owner }}/Full.git" temp_full
-          
-          # حقن الكود
+          git clone "https://${PAT_TOKEN}@github.com/cczxjdxz-max/Full.git" temp_full
           cp main.py temp_full/main.py
           cp buildozer.spec temp_full/buildozer.spec
-          
-          # حقن "طريقة البناء" نفسها (تصحيح المنفذ من الداخل)
           mkdir -p temp_full/.github/workflows
           cp executor.yml temp_full/.github/workflows/executor.yml
-          
           cd temp_full
-          git add . && git commit -m "Sovereign: Correcting System, Spec, and Code" && git push origin main
-          
-          # إطلاق المنفذ المحدث
-          curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
+          git add . && git commit -m "Kajitan: Deployment of Supreme Code" && git push origin main
+          curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/cczxjdxz-max/Full/dispatches"
