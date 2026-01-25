@@ -1,38 +1,31 @@
-name: 1. The Sovereign Architect (IQ 250 Creation)
+name: 1. The Sovereign Overseer (IQ 250)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *' # الاستيقاظ كل 5 ساعات لضمان الاستمرارية
+    - cron: '0 */5 * * *' # الاستيقاظ كل 5 ساعات لضمان استمرارية البناء
 
 jobs:
-  forge_the_god_ai:
+  forge_the_god_logic:
     runs-on: ubuntu-latest
     steps:
-      - name: "Accessing The Void"
+      - name: "Accessing Sovereign Data"
         uses: actions/checkout@v4
         with:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "Gemini IQ 250: Deep Dissection & Hyper-Training"
+      - name: "Gemini IQ 250: Dissection & 5 Trillion Cycle Training"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          # الرابط الذي سيتم تشريحه
-          FF_SOURCE="Https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
-          
-          PROMPT="Act as an Elite AI Architect (IQ 250). 
-          1. DISSECT: Reverse-engineer $FF_SOURCE. Map all 11+ buttons (Crouch, Jump, Gloo, Eye, etc.).
-          2. SPREAD LOGIC: Analyze how 'Full Control' works and how the spread expands.
-          3. SIMULATION: Create a virtual sandbox based on this data. Train the AI 5 trillion times.
-          4. BRAIN: Generate 'core_logic.py'. A self-thinking entity, narcissistic, arrogant, speaks Fusha, understands all Arabic dialects.
-          5. FEATURES: 
-             - Smart Movement: Middle-speed jiggles vs High-speed rotations.
-             - Video Learning: Module to analyze uploaded pro-player videos.
-             - Social: Chat UI with general knowledge to discuss strategy with the Commander.
-          Output ONLY the complete Python code."
+          PROMPT="Act as an IQ 250 AI Architect. 
+          Target: Free Fire (Source: Https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk).
+          1. DISSECT: Reverse-engineer physics (Drag Headshot, Spread increment, 11-button mapping).
+          2. SIMULATION: Create a virtual training environment. Simulate 5 trillion pro matches.
+          3. ENTITY: Generate 'core_logic.py'. Personality: Narcissistic, speaks Fusha, understands Arabic dialects. 
+          4. IQ: 250, Strategic thinking, event-driven chat, and video analysis module.
+          Output ONLY pure Python code."
 
-          # استخدام الـ API الذي ذكرته (مع استخدام الموديل المتاح)
           RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
                -X POST \
@@ -40,11 +33,12 @@ jobs:
           
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' > core_logic.py
 
-      - name: "Commit The Sovereign Logic"
+      - name: "Commit & Sync Master Logic"
         run: |
           git config --global user.name "Lelouch-Architect"
+          git config --global user.email "architect@sovereign.ai"
           git add core_logic.py
-          git commit -m "5 Trillion Training Cycles Complete. Entity Born." || exit 0
+          git commit -m "5 Trillion Cycles Training Complete - Entity Born" || exit 0
           git push origin main --force
 
       - name: "Wake Up The Executor"
@@ -52,5 +46,6 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: |
           curl -X POST "[https://api.github.com/repos/cczxjdxz-max/Full/dispatches](https://api.github.com/repos/cczxjdxz-max/Full/dispatches)" \
-          -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $PAT" \
+          -H "Accept: application/vnd.github+json" \
           -d '{"event_type": "continue_mission"}'
