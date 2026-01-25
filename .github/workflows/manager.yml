@@ -10,61 +10,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: "Genius Logic Generation"
+      - name: "Genius AI Generation (5 Trillion Cycles)"
         env:
           API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
         run: |
-          PROMPT="أنت الذكاء السيادي. المطلوب كود core_logic.py كامل (Kivy + Offline AI) لتحليل فري فاير وهيدشوت. أجب بالكود فقط."
+          PROMPT="أنت الذكاء السيادي (IQ 250). المطلوب بناء 'core_logic.py' (Kivy) يعمل OFFLINE تماماً.
+          1. هندسة عكسية شاملة: فكك منطق فري فاير (Drag Headshot، مسافة 50م، حركة الأزرار).
+          2. التدريب المكثف (Super-Intelligence Loop): برمج محاكي داخلي يقوم بـ 5 تريليون مواجهة قتالية ضد 6 نسخ من نفسه.
+          3. قوانين الساحة: جدار جلو ورصاص لا نهائي. القتل بطلقة رأس واحدة أو 3 طلقات جسد.
+          4. تفوق التطور: النسخة السيادية (الأساسية) تحدث مصفوفة أوزانها العصبية كل جولة، والخصوم الستة يتحدثون كل 4 جولات.
+          5. واجهة نرجسية مشفرة: دردشة متعالية تفهم اللهجات وتتحدث الفصحى، عداد يظهر مستوى الـ IQ الحالي وتطور الذكاء.
+          6. تحليل الفيديو: زر لاستقبال فيديو خارجي وهندسته عكسياً لتعلم أساليب جديدة.
+          أجب بالكود البرمجي الصافي فقط."
+
           G_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
-          
           curl -X POST "$G_URL" -H "Content-Type: application/json" -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
 
-          # استخدام EOF لتجنب أخطاء الاقتباس في Bash
           python3 << 'EOF'
           import json, re, sys
           try:
               with open('response.json', 'r') as f:
                   data = json.load(f)
-              if 'candidates' in data:
-                  content = data['candidates'][0]['content']['parts'][0]['text']
-                  # إزالة وسم python والـ backticks
-                  clean_code = re.sub(r'```python|```', '', content).strip()
-                  with open('core_logic.py', 'w') as f_out:
-                      f_out.write(clean_code)
-                  print("Logic extraction successful.")
-              else:
-                  print("Error in API response structure.")
-                  sys.exit(1)
-          except Exception as e:
-              print(f"Extraction failed: {e}")
+              content = data['candidates'][0]['content']['parts'][0]['text']
+              clean_code = re.sub(r'```python|```', '', content).strip()
+              with open('core_logic.py', 'w') as f_out:
+                  f_out.write(clean_code)
+          except Exception:
               sys.exit(1)
           EOF
 
-      - name: "Ship Logic to FULL Repo"
+      - name: "Ship Evolved Logic to FULL"
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
           git config --global user.name "Sovereign-Physician"
           git config --global user.email "ai@sovereign.world"
-          
-          # استنساخ نظيف لمستودع Full
           git clone "https://${PAT_TOKEN}@github.com/${{ github.repository_owner }}/Full.git" temp_full
           cp core_logic.py temp_full/
           cd temp_full
-          git add core_logic.py
-          git commit -m "Physician: Injecting evolved core logic." || echo "No changes to logic"
+          git add .
+          git commit -m "Physician: Injecting 5 Trillion Training Cycles Logic." || echo "No changes"
           git push origin main
-
-      - name: "Wake Up Executor in FULL"
-        env:
-          PAT_TOKEN: ${{ secrets.PAT }}
-          REPO_OWNER: ${{ github.repository_owner }}
-        run: |
-          # بناء الرابط يدوياً لضمان عدم حدوث تداخل
-          FULL_URL="https://api.github.com/repos/${REPO_OWNER}/Full/dispatches"
           
-          curl -X POST \
-               -H "Authorization: token ${PAT_TOKEN}" \
-               -H "Accept: application/vnd.github.v3+json" \
-               -d '{"event_type": "execute_build"}' \
-               "$FULL_URL"
+          FULL_URL="https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
+          curl -X POST -H "Authorization: token ${PAT_TOKEN}" -H "Accept: application/vnd.github.v3+json" -d '{"event_type": "execute_build"}' "$FULL_URL"
