@@ -5,23 +5,23 @@ on:
     types: [wake_up_call, executor_failed]
 
 jobs:
-  manage_and_fix:
+  sovereign_logic_repair:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: "1. Accessing Sovereign Realm"
+      - name: "1. Pulling System Core"
         uses: actions/checkout@v4
         with:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "2. Gemini IQ 250: Absolute Logic Engineering"
+      - name: "2. Gemini IQ 250: Engine Reconstruction"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          ERROR_DATA="${{ github.event.client_payload.error || 'Initiate Sovereign Protocol' }}"
-          PROMPT="Act as Lelouch IQ 250. Target: core_logic.py for Hitscan game. Focus on: Accessibility Service, Zero-Spread micro-taps, Autonomous play, and Arabic dialect mastery. Fix: $ERROR_DATA. Output ONLY Python."
+          ERROR_LOG="${{ github.event.client_payload.error || 'System Active' }}"
+          PROMPT="Act as Lelouch IQ 250. Perform Reverse Engineering for a Hitscan game. Focus: Accessibility Service control, Micro-tapping for zero spread, and Arabic dialect mastery for psychological play. If error exists ($ERROR_LOG), fix it. Output ONLY Python code."
           
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -29,28 +29,28 @@ jobs:
           
           echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed 's/null/None/g' > core_logic.py
 
-      - name: "3. Force Sync & Persistence"
+      - name: "3. Force Sync & Purge Conflicts"
         run: |
           git config --global user.name "Lelouch-Overseer"
           git config --global user.email "overseer@britannia.ai"
           git reset --hard origin/main
           git clean -fd
           git add core_logic.py
-          git commit -m "Auto-Repair Cycle Complete" || echo "Clean"
+          git commit -m "Logic Reconstructed: Zero Spread Ready" || echo "Stable"
           git push origin main --force
-          sleep 300
+          sleep 60
 
-      - name: "4. Deployment Signal (Protected URL)"
+      - name: "4. Deployment Signal (Protected Link)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # استراتيجية التشفير لهزيمة خطأ URL position 2
+          # حماية الرابط من خطأ Markdown bad range
           H="https://"
           G="api.github.com"
           R="/repos/cczxjdxz-max/Full/dispatches"
-          FINAL_URL="${H}${G}${R}"
+          U="${H}${G}${R}"
           
-          curl -X POST "$FINAL_URL" \
+          curl -X POST "$U" \
                -H "Authorization: Bearer $PAT" \
                -H "Accept: application/vnd.github+json" \
                -d '{"event_type": "continue_mission"}'
