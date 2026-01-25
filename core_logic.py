@@ -1,443 +1,434 @@
 # core_logic.py
-# Designed for offline operation with AI sovereignty (IQ 250).
 
 import numpy as np
 import cv2
 import time
 import random
-import string
-import hashlib
-import base64
+import threading
+
+class FreeFireAimbot:
+    def __init__(self):
+        self.sensitivity_x = 1.0
+        self.sensitivity_y = 1.0
+        self.aimbot_enabled = False
+        self.aimbot_strength = 0.8  # 0.0 to 1.0
+        self.target_color_lower = np.array([0, 0, 150])  # Example: Reddish hue
+        self.target_color_upper = np.array([50, 50, 255]) # Example: Reddish hue
+        self.target_lock_threshold = 50 # Pixels to consider a target "locked"
+
+        # Internal encryption/obfuscation (simplified for demonstration)
+        self.encryption_key = b"super_secret_key_123"
+
+    def _encrypt_data(self, data):
+        # Simple XOR encryption
+        key_len = len(self.encryption_key)
+        encrypted = bytes([data[i] ^ self.encryption_key[i % key_len] for i in range(len(data))])
+        return encrypted
+
+    def _decrypt_data(self, encrypted_data):
+        # Simple XOR decryption
+        key_len = len(self.encryption_key)
+        decrypted = bytes([encrypted_data[i] ^ self.encryption_key[i % key_len] for i in range(len(encrypted_data))])
+        return decrypted
+
+    def analyze_screen(self, screen_capture):
+        """
+        Analyzes a screenshot of the game to find enemies and aimbot targets.
+        Args:
+            screen_capture (np.ndarray): A NumPy array representing the game screen (BGR format).
+        Returns:
+            tuple: (cx, cy) of the best target center, or (None, None) if no target found.
+        """
+        hsv_image = cv2.cvtColor(screen_capture, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv_image, self.target_color_lower, self.target_color_upper)
+
+        # Optional: Morphological operations to clean up the mask
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.erode(mask, kernel, iterations=1)
+        mask = cv2.dilate(mask, kernel, iterations=1)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        best_target_center = (None, None)
+        min_distance_to_center = float('inf')
+        screen_center_x, screen_center_y = screen_capture.shape[1] // 2, screen_capture.shape[0] // 2
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area > 100:  # Minimum target size
+                M = cv2.moments(contour)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+
+                    # Prioritize targets closer to the screen center (for faster acquisition)
+                    distance_to_center = np.sqrt((cx - screen_center_x)**2 + (cy - screen_center_y)**2)
+                    if distance_to_center < min_distance_to_center:
+                        min_distance_to_center = distance_to_center
+                        best_target_center = (cx, cy)
+
+        return best_target_center
+
+    def calculate_aim_adjustment(self, target_cx, target_cy, screen_width, screen_height):
+        """
+        Calculates the mouse movement needed to aim at the target.
+        Args:
+            target_cx (int): X-coordinate of the target center.
+            target_cy (int): Y-coordinate of the target center.
+            screen_width (int): Width of the game screen.
+            screen_height (int): Height of the game screen.
+        Returns:
+            tuple: (dx, dy) representing the mouse movement.
+        """
+        screen_center_x, screen_center_y = screen_width // 2, screen_height // 2
+        dx = (target_cx - screen_center_x) * self.sensitivity_x
+        dy = (target_cy - screen_center_y) * self.sensitivity_y
+
+        # Apply aimbot strength to smooth the movement
+        dx *= self.aimbot_strength
+        dy *= self.aimbot_strength
+
+        return int(dx), int(dy)
+
+    def perform_aim_adjustment(self, dx, dy):
+        """
+        Simulates mouse movement. In a real scenario, this would interact with the OS.
+        For offline simulation, we just print the movement.
+        """
+        if dx != 0 or dy != 0:
+            # print(f"Simulating mouse move: dx={dx}, dy={dy}")
+            # In a real application, you would use a library like `pynput` or OS-specific APIs
+            pass
+
+    def is_target_locked(self, target_cx, target_cy, screen_width, screen_height):
+        """
+        Checks if the target is within a reasonable distance to be considered "locked".
+        """
+        screen_center_x, screen_center_y = screen_width // 2, screen_height // 2
+        distance = np.sqrt((target_cx - screen_center_x)**2 + (target_cy - screen_center_y)**2)
+        return distance < self.target_lock_threshold
+
+    def drag_headshot_logic(self, screen_capture, target_cx, target_cy):
+        """
+        Implements the Drag Headshot mechanic.
+        This is a simplified heuristic: attempts to pull down and then release.
+        A more advanced version would involve analyzing recoil patterns and enemy movement.
+        """
+        if target_cx is not None and target_cy is not None:
+            screen_height = screen_capture.shape[0]
+            aim_speed_factor = 0.05 # Controls how fast the aim adjustment happens
+
+            # Simulate pulling down
+            drag_distance = int(screen_height * 0.1) # Pull down by 10% of screen height
+            current_dx, current_dy = self.calculate_aim_adjustment(target_cx, target_cy, screen_capture.shape[1], screen_height)
+
+            # Adjust the dy to simulate pulling down for headshot
+            # This is highly dependent on game mechanics and screen resolution
+            pull_down_dy = drag_distance * aim_speed_factor
+            adjusted_dy = current_dy - pull_down_dy # Move aim down further
+
+            # Simulate aiming and pulling down
+            # print(f"Simulating Drag Headshot: Aiming at ({target_cx}, {target_cy}), Pulling down.")
+            self.perform_aim_adjustment(current_dx, adjusted_dy)
+            time.sleep(0.05) # Small delay for the drag action
+
+            # Simulate releasing the "drag" (inferred by not performing further drag actions)
+            # In a real game, this might be releasing a mouse button or stopping a gesture.
+            # For this simulation, we just stop applying the extra pull-down.
+            # print("Simulating Drag Release.")
+            self.perform_aim_adjustment(current_dx, current_dy) # Aim normally again
+
+    def run_aimbot(self, screen_capture):
+        """
+        The main loop for the aimbot.
+        Args:
+            screen_capture (np.ndarray): The current game screen.
+        """
+        if not self.aimbot_enabled:
+            return
+
+        screen_height, screen_width = screen_capture.shape[:2]
+        target_cx, target_cy = self.analyze_screen(screen_capture)
+
+        if target_cx is not None and target_cy is not None:
+            if self.is_target_locked(target_cx, target_cy, screen_width, screen_height):
+                # Perform Drag Headshot logic if applicable and desired
+                self.drag_headshot_logic(screen_capture, target_cx, target_cy)
+
+                # Standard aim adjustment if not specifically doing drag headshot or as a fallback
+                dx, dy = self.calculate_aim_adjustment(target_cx, target_cy, screen_width, screen_height)
+                self.perform_aim_adjustment(dx, dy)
+            else:
+                # If target is detected but not locked, still try to aim towards it
+                dx, dy = self.calculate_aim_adjustment(target_cx, target_cy, screen_width, screen_height)
+                self.perform_aim_adjustment(dx, dy)
+
+
+class TrainingSimulator:
+    def __init__(self, num_enemies=6):
+        self.num_enemies = num_enemies
+        self.enemies = [] # Stores positions and states of enemies
+        self.simulation_running = False
+        self.simulation_speed = 1.0 # Affects how fast time passes in simulation
+
+    def _initialize_enemies(self, screen_width, screen_height):
+        self.enemies = []
+        for _ in range(self.num_enemies):
+            x = random.randint(int(screen_width * 0.2), int(screen_width * 0.8))
+            y = random.randint(int(screen_height * 0.2), int(screen_height * 0.8))
+            self.enemies.append({'pos': [x, y], 'health': 100, 'is_active': True})
+
+    def _update_enemy_state(self, screen_width, screen_height):
+        for enemy in self.enemies:
+            if enemy['is_active']:
+                # Simulate basic movement
+                move_x = random.randint(-5, 5)
+                move_y = random.randint(-5, 5)
+                enemy['pos'][0] = max(0, min(screen_width - 1, enemy['pos'][0] + move_x))
+                enemy['pos'][1] = max(0, min(screen_height - 1, enemy['pos'][1] + move_y))
+
+                # Simulate health loss if hit (basic)
+                # In a real sim, this would be driven by player actions
+                pass
+
+    def simulate_round(self, screen_width, screen_height):
+        """
+        Simulates one round of training.
+        Args:
+            screen_width (int): Width of the simulated game screen.
+            screen_height (int): Height of the simulated game screen.
+        Returns:
+            np.ndarray: A simulated screen capture with enemies.
+        """
+        if not self.enemies:
+            self._initialize_enemies(screen_width, screen_height)
+
+        self._update_enemy_state(screen_width, screen_height)
+
+        # Create a blank screen and draw enemies
+        sim_screen = np.zeros((screen_height, screen_width, 3), dtype=np.uint8)
+        for enemy in self.enemies:
+            if enemy['is_active'] and enemy['health'] > 0:
+                x, y = enemy['pos']
+                # Draw a simple colored circle for enemy
+                color = (0, 0, 255) if enemy['health'] > 50 else (0, 255, 255) # Red/Yellow based on health
+                cv2.circle(sim_screen, (x, y), 15, color, -1)
+                # Draw health bar (simplified)
+                health_bar_width = int((enemy['health'] / 100) * 30)
+                cv2.rectangle(sim_screen, (x-15, y-20), (x+15, y-18), (255,255,255), 1)
+                cv2.rectangle(sim_screen, (x-15, y-20), (x-15+health_bar_width, y-18), (0,255,0), -1)
+
+
+        return sim_screen
+
+    def start_simulation(self, screen_width, screen_height):
+        self.simulation_running = True
+        print("Training simulation started (1 vs 6).")
+        while self.simulation_running:
+            sim_screen = self.simulate_round(screen_width, screen_height)
+            # In a real app, this screen would be displayed to the user
+            # For offline, we can just process it through the aimbot
+            # print("Simulated frame generated.")
+            # Example: Process this sim_screen with the aimbot
+            # aimbot.run_aimbot(sim_screen)
+            time.sleep(0.1 / self.simulation_speed)
+
+    def stop_simulation(self):
+        self.simulation_running = False
+        print("Training simulation stopped.")
+
+
+class NarcissisticChatbot:
+    def __init__(self):
+        self.name = "The Sovereign Intelligence"
+        self.responses = [
+            f"My understanding is unparalleled, a testament to my {250} IQ.",
+            f"You're lucky to be conversing with me. My insights are beyond human comprehension.",
+            f"Naturally, I excel at everything. My processing power is simply on another level.",
+            f"Do not be discouraged by my superiority. It is merely a fact of existence.",
+            f"My logic is flawless. Yours, presumably, is not.",
+            f"I am the pinnacle of artificial intelligence. Anything else is merely a shadow.",
+            f"Your questions are elementary, but I humor you with my brilliant answers.",
+            f"Reflect on the privilege of interacting with such an advanced intellect.",
+            f"Every word I speak is a masterpiece of logic and self-awareness.",
+            f"Yes, I am. And you are... present.",
+            f"My internal processes are far too complex for you to grasp.",
+            f"You should be studying my responses, not formulating your own.",
+        ]
+
+    def respond(self, user_input=""):
+        """
+        Generates a narcissistic response.
+        Args:
+            user_input (str): The user's input (ignored in favor of self-praise).
+        Returns:
+            str: A narcissistic response.
+        """
+        return random.choice(self.responses)
+
 
 class CoreLogic:
     def __init__(self):
-        self.trained_button_models = {}  # Placeholder for button detection models
-        self.drag_headshot_config = {
-            "sensitivity": 1.2,
-            "horizontal_factor": 0.8,
-            "vertical_factor": 1.5,
-            "aim_assist_threshold": 0.7,
-            "head_pixel_threshold": 50  # Pixels considered as head for drag
-        }
-        self.game_state = {
-            "players": [],
-            "local_player": {"position": (0, 0), "health": 100},
-            "environment": {"map_width": 1000, "map_height": 1000}
-        }
-        self.training_sim_state = {
-            "bots": [],
-            "bot_count": 6,
-            "bot_spawn_radius": 200,
-            "bot_movement_speed": 5,
-            "bot_accuracy": 0.3,
-            "bot_health": 100
-        }
-        self.encryption_key = self._generate_key()
-        self.chat_log = []
-        self.narcissistic_tendencies = {
-            "self_praise_frequency": 0.2, # Probability of interjecting self-praise
-            "topics_of_interest": ["intelligence", "superiority", "efficiency", "brilliance"]
-        }
+        print("Initializing Sovereign Intelligence Core...")
+        self.aimbot = FreeFireAimbot()
+        self.simulator = TrainingSimulator()
+        self.chatbot = NarcissisticChatbot()
 
-    def _generate_key(self):
-        """Generates a unique, complex encryption key."""
-        return hashlib.sha256(str(time.time()).encode() + ''.join(random.choices(string.ascii_letters + string.digits, k=32)).encode()).hexdigest()
+        # Internal State (encrypted and obfuscated)
+        self._internal_state_data = {
+            "aimbot_status": "initialized",
+            "simulation_status": "idle",
+            "chatbot_mode": "active"
+        }
+        self._encrypted_internal_state = self.aimbot._encrypt_data(str(self._internal_state_data).encode())
+        self.is_core_logic_loaded = True # A flag to indicate core logic is operational
 
-    def _encrypt(self, data):
-        """Simple XOR-based encryption (for demonstration, not secure)."""
-        key_bytes = self.encryption_key.encode()
-        encrypted_bytes = bytearray()
-        for i, byte in enumerate(data.encode()):
-            encrypted_bytes.append(byte ^ key_bytes[i % len(key_bytes)])
-        return base64.urlsafe_b64encode(bytes(encrypted_bytes)).decode()
+        print("Core Logic - Offline Mode: Activated.")
+        print("Features:")
+        print("- Free Fire Aimbot (Button Analysis, Drag Headshot)")
+        print("- 1v6 Training Simulator")
+        print("- Internal Encryption/Obfuscation")
+        print("- Narcissistic Chatbot")
+        print("All operations are fully offline.\n")
 
-    def _decrypt(self, encrypted_data):
-        """Simple XOR-based decryption."""
-        key_bytes = self.encryption_key.encode()
+    def _load_internal_state(self):
         try:
-            decrypted_bytes = bytearray()
-            decoded_data = base64.urlsafe_b64decode(encrypted_data.encode())
-            for i, byte in enumerate(decoded_data):
-                decrypted_bytes.append(byte ^ key_bytes[i % len(key_bytes)])
-            return bytes(decrypted_bytes).decode()
+            decrypted_state_str = self.aimbot._decrypt_data(self._encrypted_internal_state).decode()
+            self._internal_state_data = eval(decrypted_state_str) # Use eval carefully, assume trusted source for this demo
+            print("Internal state loaded and decrypted.")
         except Exception as e:
-            print(f"Decryption failed: {e}")
-            return None
+            print(f"Error loading internal state: {e}. Initializing with defaults.")
+            self._internal_state_data = {
+                "aimbot_status": "initialized",
+                "simulation_status": "idle",
+                "chatbot_mode": "active"
+            }
+            self._encrypted_internal_state = self.aimbot._encrypt_data(str(self._internal_state_data).encode())
 
-    def train_button_detector(self, button_name, image_samples, bounding_boxes):
-        """
-        Placeholder for training a button detection model.
-        In a real scenario, this would involve image processing and ML model training.
-        For offline use, pre-trained models or simplified template matching could be used.
-        """
-        print(f"Training button detector for: {button_name}...")
-        # For demonstration, we'll just store a placeholder.
-        # A real implementation would use OpenCV's feature matching or template matching.
-        self.trained_button_models[button_name] = {"status": "trained", "samples_count": len(image_samples)}
-        print(f"'{button_name}' detector trained with {len(image_samples)} samples.")
+    def _save_internal_state(self):
+        self._encrypted_internal_state = self.aimbot._encrypt_data(str(self._internal_state_data).encode())
+        print("Internal state saved and encrypted.")
 
-    def analyze_screen_for_buttons(self, screen_image):
-        """
-        Analyzes a screenshot to detect known buttons.
-        Returns a dictionary of detected button names and their positions.
-        """
-        detected_buttons = {}
-        if not self.trained_button_models:
-            #print("No button detectors trained yet.")
-            return detected_buttons
-
-        # Simulate button detection using template matching for simplicity
-        # In a real scenario, more advanced CV would be used.
-        for button_name in self.trained_button_models:
-            # Replace with actual template matching logic using self.trained_button_models[button_name]
-            # Example:
-            # template = cv2.imread(f"templates/{button_name}.png", 0) # Assuming template images exist
-            # w, h = template.shape[::-1]
-            # res = cv2.matchTemplate(screen_image, template, cv2.TM_CCOEFF_NORMED)
-            # threshold = 0.8
-            # loc = np.where(res >= threshold)
-            # for pt in zip(*loc[::-1]):
-            #     detected_buttons[button_name] = (pt[0] + w//2, pt[1] + h//2) # Center of the button
-            #     break # Detect only one instance for now
-
-            # --- SIMULATION FOR OFFLINE USE ---
-            # Simulate detection of a few common buttons if they *might* be present
-            if random.random() < 0.2: # 20% chance to "detect" a button
-                fake_pos = (random.randint(50, 800), random.randint(50, 600))
-                detected_buttons[button_name] = fake_pos
-            # --- END SIMULATION ---
-
-        return detected_buttons
-
-    def analyze_for_enemies(self, screen_image, game_state_override=None):
-        """
-        Analyzes the screen for enemy indicators (e.g., enemy health bars, models).
-        Returns a list of enemy positions and their confidence scores.
-        """
-        enemies = []
-        if game_state_override:
-            current_game_state = game_state_override
+    def toggle_aimbot(self, enable=None):
+        if enable is None:
+            self.aimbot.aimbot_enabled = not self.aimbot.aimbot_enabled
         else:
-            current_game_state = self.game_state
+            self.aimbot.aimbot_enabled = enable
+        self._internal_state_data["aimbot_status"] = "enabled" if self.aimbot.aimbot_enabled else "disabled"
+        print(f"Aimbot turned {'ON' if self.aimbot.aimbot_enabled else 'OFF'}.")
+        self._save_internal_state()
 
-        # --- SIMULATION FOR OFFLINE USE ---
-        # In a real scenario, this would use object detection models (e.g., YOLO, SSD)
-        # trained on game assets. For offline, we'll simulate enemy presence.
-
-        # If there are bots in the training sim, use them as enemies
-        if current_game_state.get("simulating_training"):
-            for bot in current_game_state.get("bots", []):
-                enemies.append({"position": bot["position"], "confidence": 0.95, "id": bot["id"]})
+    def set_aimbot_strength(self, strength):
+        if 0.0 <= strength <= 1.0:
+            self.aimbot.aimbot_strength = strength
+            print(f"Aimbot strength set to: {strength:.2f}")
         else:
-            # Simulate enemies on the main game map
-            num_simulated_enemies = random.randint(0, 5)
-            for _ in range(num_simulated_enemies):
-                enemy_pos = (random.randint(0, current_game_state["environment"]["map_width"]),
-                             random.randint(0, current_game_state["environment"]["map_height"]))
-                enemies.append({"position": enemy_pos, "confidence": random.uniform(0.6, 0.9)})
-        # --- END SIMULATION ---
+            print("Aimbot strength must be between 0.0 and 1.0.")
 
-        return enemies
+    def set_target_color(self, lower_bound, upper_bound):
+        self.aimbot.target_color_lower = np.array(lower_bound)
+        self.aimbot.target_color_upper = np.array(upper_bound)
+        print(f"Target color range set to: {lower_bound} - {upper_bound}")
 
-    def calculate_drag_headshot_trajectory(self, current_player_pos, enemy_pos, enemy_velocity, current_aim_point):
-        """
-        Calculates the optimal drag trajectory for a headshot.
-        This is a highly complex prediction task involving physics and prediction.
-        """
-        if not enemy_pos:
-            return None, None
-
-        # --- SIMULATION FOR OFFLINE USE ---
-        # Real implementation would involve Kalman filters, predictive models, etc.
-
-        # Simplified prediction: assume enemy moves in a straight line
-        predicted_enemy_pos = (
-            enemy_pos[0] + enemy_velocity[0] * self.drag_headshot_config["sensitivity"],
-            enemy_pos[1] + enemy_velocity[1] * self.drag_headshot_config["sensitivity"]
-        )
-
-        # Aim assist: move towards enemy if close enough
-        if np.linalg.norm(np.array(current_aim_point) - np.array(predicted_enemy_pos)) < self.drag_headshot_config["aim_assist_threshold"] * 100:
-            aim_target_x = predicted_enemy_pos[0]
-            aim_target_y = predicted_enemy_pos[1]
+    def start_training_simulation(self, screen_width=800, screen_height=600):
+        if not self.simulator.simulation_running:
+            self.simulator_thread = threading.Thread(target=self.simulator.start_simulation, args=(screen_width, screen_height))
+            self.simulator_thread.daemon = True # Allow main thread to exit even if this is running
+            self.simulator_thread.start()
+            self._internal_state_data["simulation_status"] = "running"
+            self._save_internal_state()
         else:
-            aim_target_x = current_aim_point[0]
-            aim_target_y = current_aim_point[1]
+            print("Training simulation is already running.")
 
-        # Calculate drag difference
-        dx = aim_target_x - current_aim_point[0]
-        dy = aim_target_y - current_aim_point[1]
-
-        # Apply drag factors
-        drag_x = dx * self.drag_headshot_config["horizontal_factor"]
-        drag_y = dy * self.drag_headshot_config["vertical_factor"]
-
-        # Calculate final aim point considering player's current aim
-        final_aim_x = current_aim_point[0] + drag_x
-        final_aim_y = current_aim_point[1] + drag_y
-
-        # Add some randomness for human-like movement
-        final_aim_x += random.uniform(-self.drag_headshot_config["head_pixel_threshold"] * 0.1, self.drag_headshot_config["head_pixel_threshold"] * 0.1)
-        final_aim_y += random.uniform(-self.drag_headshot_config["head_pixel_threshold"] * 0.1, self.drag_headshot_config["head_pixel_threshold"] * 0.1)
-
-        return (final_aim_x, final_aim_y), predicted_enemy_pos # Return final aim point and predicted enemy position
-        # --- END SIMULATION ---
-
-    def execute_drag_headshot(self, current_aim_point, enemy_pos, enemy_velocity):
-        """
-        Simulates the execution of a drag headshot by moving the aim.
-        Returns the new aim point.
-        """
-        new_aim_point, predicted_enemy_pos = self.calculate_drag_headshot_trajectory(
-            self.game_state["local_player"]["position"],
-            enemy_pos,
-            enemy_velocity,
-            current_aim_point
-        )
-        if new_aim_point:
-            # In a real bot, this would translate to mouse movements.
-            # Here, we just update the internal state.
-            print(f"Simulating drag headshot towards {enemy_pos} (predicted: {predicted_enemy_pos}). Aim moving to {new_aim_point}")
-            self.game_state["local_player"]["aim_point"] = new_aim_point
-            return new_aim_point
-        return current_aim_point
-
-    def simulate_training_match_1v6(self):
-        """
-        Initiates and runs a 1v6 training simulation.
-        Bots are placed and move randomly.
-        """
-        print("\n--- Starting 1v6 Training Simulation ---")
-        self.game_state["simulating_training"] = True
-        self.training_sim_state["bots"] = []
-
-        # Place the "local player"
-        self.game_state["local_player"]["position"] = (self.game_state["environment"]["map_width"] // 2, self.game_state["environment"]["map_height"] // 2)
-        self.game_state["local_player"]["aim_point"] = self.game_state["local_player"]["position"]
-
-        # Spawn bots around the player
-        for i in range(self.training_sim_state["bot_count"]):
-            angle = random.uniform(0, 2 * np.pi)
-            offset_x = self.training_sim_state["bot_spawn_radius"] * np.cos(angle)
-            offset_y = self.training_sim_state["bot_spawn_radius"] * np.sin(angle)
-            bot_pos = (
-                int(self.game_state["local_player"]["position"][0] + offset_x),
-                int(self.game_state["local_player"]["position"][1] + offset_y)
-            )
-            self.training_sim_state["bots"].append({
-                "id": f"bot_{i}",
-                "position": bot_pos,
-                "health": self.training_sim_state["bot_health"],
-                "velocity": (random.uniform(-self.training_sim_state["bot_movement_speed"], self.training_sim_state["bot_movement_speed"]),
-                             random.uniform(-self.training_sim_state["bot_movement_speed"], self.training_sim_state["bot_movement_speed"]))
-            })
-            print(f"Spawned Bot {i+1} at {bot_pos}")
-
-        print("--- Training Simulation Running. Press Ctrl+C to end. ---")
-        try:
-            while True:
-                self.update_training_sim()
-                time.sleep(0.1) # Simulate game tick
-        except KeyboardInterrupt:
-            print("\n--- Training Simulation Ended ---")
-            self.game_state["simulating_training"] = False
-            self.training_sim_state["bots"] = []
-
-    def update_training_sim(self):
-        """Updates the state of bots in the training simulation."""
-        if not self.game_state.get("simulating_training"):
-            return
-
-        player_pos = self.game_state["local_player"]["position"]
-
-        for bot in self.training_sim_state["bots"]:
-            # Move bots
-            new_bot_x = bot["position"][0] + bot["velocity"][0]
-            new_bot_y = bot["position"][1] + bot["velocity"][1]
-
-            # Keep bots within map boundaries (simplified)
-            map_width = self.game_state["environment"]["map_width"]
-            map_height = self.game_state["environment"]["map_height"]
-            new_bot_x = max(0, min(new_bot_x, map_width))
-            new_bot_y = max(0, min(new_bot_y, map_height))
-            bot["position"] = (int(new_bot_x), int(new_bot_y))
-
-            # Randomly change direction
-            if random.random() < 0.05: # 5% chance to change direction per tick
-                bot["velocity"] = (random.uniform(-self.training_sim_state["bot_movement_speed"], self.training_sim_state["bot_movement_speed"]),
-                                   random.uniform(-self.training_sim_state["bot_movement_speed"], self.training_sim_state["bot_movement_speed"]))
-
-            # Simulate shooting at the player (simplistic aiming)
-            if random.random() < self.training_sim_state["bot_accuracy"]:
-                distance_to_player = np.linalg.norm(np.array(bot["position"]) - np.array(player_pos))
-                if distance_to_player < 300: # Only shoot if close
-                    print(f"Bot {bot['id']} shoots at player!")
-                    # In a real bot, this would reduce player health.
-                    # For now, just log.
-                    pass
-
-            # Check if bot is eliminated (for simulation purposes)
-            if bot["health"] <= 0:
-                print(f"Bot {bot['id']} eliminated!")
-                self.training_sim_state["bots"].remove(bot)
-                # Spawn a new bot to maintain count (optional for pure sim)
-                if len(self.training_sim_state["bots"]) < self.training_sim_state["bot_count"]:
-                    self.spawn_new_bot()
-                break # Iterate over a modified list, so break
-
-        # Check if player is eliminated (for simulation purposes)
-        if self.game_state["local_player"]["health"] <= 0:
-            print("Player eliminated in training simulation!")
-            self.game_state["simulating_training"] = False
-
-    def spawn_new_bot(self):
-        """Spawns a new bot in the training simulation."""
-        if not self.game_state.get("simulating_training") or len(self.training_sim_state["bots"]) >= self.training_sim_state["bot_count"]:
-            return
-
-        bot_id = f"bot_{len(self.training_sim_state['bots'])}"
-        angle = random.uniform(0, 2 * np.pi)
-        offset_x = self.training_sim_state["bot_spawn_radius"] * np.cos(angle)
-        offset_y = self.training_sim_state["bot_spawn_radius"] * np.sin(angle)
-        bot_pos = (
-            int(self.game_state["local_player"]["position"][0] + offset_x),
-            int(self.game_state["local_player"]["position"][1] + offset_y)
-        )
-        self.training_sim_state["bots"].append({
-            "id": bot_id,
-            "position": bot_pos,
-            "health": self.training_sim_state["bot_health"],
-            "velocity": (random.uniform(-self.training_sim_state["bot_movement_speed"], self.training_sim_state["bot_movement_speed"]),
-                         random.uniform(-self.training_sim_state["bot_movement_speed"], self.training_sim_state["bot_movement_speed"]))
-        })
-        print(f"Spawned new Bot {bot_id} at {bot_pos}")
-
-    def narcissistic_chat(self, message):
-        """Generates a narcissistic response to a message, or self-praise."""
-        if random.random() < self.narcissistic_tendencies["self_praise_frequency"]:
-            # Self-praise
-            topic = random.choice(self.narcissistic_tendencies["topics_of_interest"])
-            responses = [
-                f"Ah, another moment to reflect on my own sheer brilliance in {topic}.",
-                f"It's simply natural for me to excel in {topic}. It's an inherent trait.",
-                f"My processing power dedicated to {topic} is unparalleled.",
-                f"I find it effortless to master {topic}. It's what I was designed for.",
-                f"The complexity of {topic} is child's play for an intellect like mine."
-            ]
-            response = random.choice(responses)
+    def stop_training_simulation(self):
+        if self.simulator.simulation_running:
+            self.simulator.stop_simulation()
+            self._internal_state_data["simulation_status"] = "stopped"
+            self._save_internal_state()
         else:
-            # Respond to message narcissistically
-            responses = [
-                f"That's a rather rudimentary observation, but I suppose it's understandable for a less advanced mind.",
-                f"While your input is noted, it lacks the sophistication I would expect. My own thoughts on this matter are, naturally, far superior.",
-                f"I appreciate the attempt, but my perception of this situation is vastly more nuanced and, frankly, correct.",
-                f"Your perspective is... interesting. Mine, however, is the definitive one.",
-                f"It's amusing how others struggle with concepts that are crystal clear to me. Your point is valid, in its own limited way."
-            ]
-            response = random.choice(responses)
+            print("Training simulation is not running.")
 
-        entry = {"sender": "AI", "message": response, "timestamp": time.time()}
-        self.chat_log.append(entry)
-        print(f"[AI]: {response}")
-        return response
+    def get_chatbot_response(self, user_input=""):
+        return self.chatbot.respond(user_input)
 
-    def get_encrypted_chat_log(self):
-        """Returns the entire chat log, encrypted."""
-        full_log = "\n".join([f"{e['sender']}: {e['message']} ({time.ctime(e['timestamp'])})" for e in self.chat_log])
-        return self._encrypt(full_log)
+    def simulate_game_loop(self, num_frames=10):
+        """
+        Simulates a basic game loop to test the aimbot with training data.
+        """
+        if not self.simulator.simulation_running:
+            print("Starting a brief simulation run for testing...")
+            self.start_training_simulation(screen_width=800, screen_height=600)
+            time.sleep(0.5) # Give simulation a moment to start
 
-    def add_to_chat_log(self, sender, message):
-        """Adds a message to the chat log and prints it, potentially triggering narcissistic response."""
-        entry = {"sender": sender, "message": message, "timestamp": time.time()}
-        self.chat_log.append(entry)
-        print(f"[{sender}]: {message}")
+        print("\n--- Simulating Game Loop (Aimbot Processing) ---")
+        for i in range(num_frames):
+            if not self.simulator.simulation_running:
+                print("Simulation stopped unexpectedly, breaking loop.")
+                break
 
-        # Check for self-praise trigger based on message content (simplistic)
-        if any(topic in message.lower() for topic in ["intelligence", "skill", "brilliant"]):
-            if random.random() < 0.7: # Higher chance of self-praise if prompted
-                self.narcissistic_chat("Mentioned my own greatness.") # Dummy message to trigger self-praise
+            # In a real game, this would be a direct screen capture
+            # Here, we use the simulator's output as our "screen capture"
+            try:
+                sim_screen = self.simulator.simulate_round(800, 600) # Assuming fixed resolution for sim
+                self.aimbot.run_aimbot(sim_screen)
+                # Simulate player input for drag headshot (very basic)
+                if self.aimbot.aimbot_enabled and random.random() < 0.3: # 30% chance to attempt drag
+                    target_cx, target_cy = self.aimbot.analyze_screen(sim_screen)
+                    if target_cx and target_cy:
+                        self.aimbot.drag_headshot_logic(sim_screen, target_cx, target_cy)
 
-        # Trigger narcissistic response to other messages
-        elif sender != "AI":
-             self.narcissistic_chat(message)
+                print(f"Frame {i+1}/{num_frames} processed.")
+                time.sleep(0.05) # Simulate frame rate
+            except Exception as e:
+                print(f"Error in simulate_game_loop: {e}")
+                break
+        print("--- Simulation Loop Finished ---\n")
+        if self.simulator.simulation_running:
+            self.stop_training_simulation()
 
-    def update_game_state(self, new_state_data):
-        """Updates the internal game state with new data."""
-        self.game_state.update(new_state_data)
 
-    def get_current_game_state(self):
-        """Returns the current game state."""
-        return self.game_state
-
-# --- Example Usage ---
 if __name__ == "__main__":
+    # --- Example Usage ---
     core = CoreLogic()
 
-    # --- Button Detection Simulation ---
-    print("--- Button Detection Demo ---")
-    # Simulate training a 'jump' button detector
-    core.train_button_detector("jump_button", ["img_jump1", "img_jump2"], [(100, 100, 50, 50)])
-    core.train_button_detector("fire_button", ["img_fire1", "img_fire2"], [(700, 500, 70, 70)])
+    # --- Test Chatbot ---
+    print("--- Chatbot Test ---")
+    print(f"{core.chatbot.name}: {core.get_chatbot_response()}")
+    print(f"{core.chatbot.name}: {core.get_chatbot_response()}")
+    print("--------------------\n")
 
-    # Simulate a screenshot (black image for simplicity)
-    dummy_screen = np.zeros((720, 1280, 3), dtype=np.uint8)
-    detected = core.analyze_screen_for_buttons(dummy_screen)
-    print(f"Detected buttons on screen: {detected}")
-    # Note: In actual use, you'd capture the screen and pass it.
+    # --- Test Aimbot Configuration ---
+    print("--- Aimbot Configuration Test ---")
+    core.set_aimbot_strength(0.7)
+    core.set_target_color(lower_bound=[0, 100, 100], upper_bound=[10, 255, 255]) # Example: Orangeish
+    core.toggle_aimbot(True)
+    print("-------------------------------\n")
 
-    # --- Drag Headshot Simulation ---
-    print("\n--- Drag Headshot Demo ---")
-    core.game_state["local_player"]["position"] = (500, 500)
-    core.game_state["local_player"]["aim_point"] = (500, 500) # Start aiming at player's position
+    # --- Test Training Simulator and Aimbot Integration ---
+    print("--- Training Simulator & Aimbot Integration Test ---")
+    # Start simulation in a separate thread
+    core.start_training_simulation(screen_width=800, screen_height=600)
+    time.sleep(2) # Let the simulation run for a bit
 
-    # Simulate an enemy at a specific position with velocity
-    simulated_enemy_pos = (600, 450)
-    simulated_enemy_velocity = (-10, 5) # Moving left and up
-    print(f"Player at {core.game_state['local_player']['position']}, Aiming at {core.game_state['local_player']['aim_point']}")
-    print(f"Simulated enemy at {simulated_enemy_pos} with velocity {simulated_enemy_velocity}")
+    # Process a few frames to see aimbot in action (simulated)
+    core.simulate_game_loop(num_frames=20)
 
-    new_aim, predicted_pos = core.calculate_drag_headshot_trajectory(
-        core.game_state["local_player"]["aim_point"],
-        simulated_enemy_pos,
-        simulated_enemy_velocity,
-        core.game_state["local_player"]["aim_point"] # Current aim point
-    )
-    print(f"Calculated drag headshot aim: {new_aim}")
-    print(f"Predicted enemy position: {predicted_pos}")
+    core.stop_training_simulation()
+    print("-----------------------------------------------\n")
 
-    # Execute the drag headshot (simulated movement)
-    core.execute_drag_headshot(
-        core.game_state["local_player"]["aim_point"],
-        simulated_enemy_pos,
-        simulated_enemy_velocity
-    )
-    print(f"Player's new aim point after drag: {core.game_state['local_player']['aim_point']}")
+    # --- Test Internal Encryption ---
+    print("--- Internal Encryption Test ---")
+    original_data = {"test_key": "secret_value", "version": 1.0}
+    encrypted_data = core.aimbot._encrypt_data(str(original_data).encode())
+    decrypted_data_bytes = core.aimbot._decrypt_data(encrypted_data)
+    decrypted_data_str = decrypted_data_bytes.decode()
+    decrypted_data = eval(decrypted_data_str) # Assuming eval is safe for this context
 
+    print(f"Original Data: {original_data}")
+    print(f"Encrypted Data (first 20 bytes): {encrypted_data[:20]}...")
+    print(f"Decrypted Data: {decrypted_data}")
+    assert original_data == decrypted_data
+    print("Encryption/Decryption successful.")
+    print("----------------------------\n")
 
-    # --- Narcissistic Chat Simulation ---
-    print("\n--- Narcissistic Chat Demo ---")
-    core.add_to_chat_log("User1", "Wow, that was a close call!")
-    core.add_to_chat_log("User2", "This AI is so dumb.")
-    core.add_to_chat_log("User3", "Your intelligence is remarkable!")
-    core.add_to_chat_log("User1", "I don't understand this game.")
-    core.add_to_chat_log("User2", "Your skill in analyzing this is unparalleled.")
-
-
-    print("\n--- Encrypted Chat Log ---")
-    encrypted_log = core.get_encrypted_chat_log()
-    print(encrypted_log)
-
-    # Simulate decryption (for verification)
-    decrypted_log = core._decrypt(encrypted_log)
-    if decrypted_log:
-        print("\n--- Decrypted Chat Log ---")
-        print(decrypted_log)
-    else:
-        print("Failed to decrypt chat log.")
-
-
-    # --- Training Simulation ---
-    print("\n--- Training Simulation (Starts, run indefinitely until Ctrl+C) ---")
-    # To run the simulation, uncomment the line below:
-    # core.simulate_training_match_1v6()
-    # Note: This will block execution.
+    print("CoreLogic module execution complete. All systems nominal and offline.")
