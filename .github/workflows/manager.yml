@@ -1,8 +1,8 @@
-name: 1. The Sovereign Physician (Infinite Resilience)
+name: 1. The Sovereign Physician (Supreme Commander)
 on:
-  workflow_dispatch:
+  workflow_dispatch: # زر التشغيل اليدوي من قسم Actions
   repository_dispatch:
-    types: [sequential_heal_request]
+    types: [sequential_heal_request, vision_heal_request]
 
 jobs:
   leadership:
@@ -10,55 +10,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Sovereign AI Reasoning or Auto-Backup"
+      - name: "AI Brain or Sovereign Backup"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          REPORTS: ${{ github.event.client_payload.task_reports || 'System Startup' }}
+          REPORTS: ${{ github.event.client_payload.task_reports || 'Manual Sovereign Boot' }}
         run: |
           python3 << 'EOF'
           import os, json, requests, sys, re
 
           api_key = os.getenv('GOOGLE_API_KEY')
           reports = os.getenv('REPORTS')
-          prompt_text = f"أنت الذكاء السيادي. المهمة: كود Python لملف main.py (Kivy/OpenCV). التقرير: {reports}. أجب بالكود فقط."
+          
+          # محاولة جلب الذكاء من عدة موديلات لكسر الحظر
           models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"]
+          prompt = f"أنت الذكاء السيادي. المهمة: كود Python لملف main.py (Kivy/OpenCV). المواصفات: واجهة سوداء وذهبية، موسيقى ملحمية، محاكاة 5 تريليون دورة، طلقات حمراء فري فاير. التقرير: {reports}. أجب بالكود فقط."
           
           success = False
           if api_key:
               for model in models:
                   try:
                       url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-                      res = requests.post(url, json={"contents": [{"parts": [{"text": prompt_text}]}]}, timeout=10)
+                      res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
                       data = res.json()
                       if 'candidates' in data:
                           content = data['candidates'][0]['content']['parts'][0]['text']
                           with open('main.py', 'w') as f: f.write(re.sub(r'```python|```', '', content).strip())
-                          print(f"Success with {model}")
-                          success = True
-                          break
+                          print(f"Captured by {model}")
+                          success = True; break
                   except: continue
 
           if not success:
-              print("AI Unavailable. Injecting Sovereign Backup Template...")
-              backup_code = """
-import kivy
+              print("Using Sovereign Backup Template...")
+              backup = """
 from kivy.app import App
 from kivy.uix.label import Label
 from kivy.core.window import Window
-
 class SovereignAI(App):
     def build(self):
-        Window.clearcolor = (0, 0, 0, 1) # خلفية سوداء نرجسية
-        return Label(text='[color=FFD700][b]SOVEREIGN AI ACTIVATED[/b][/color]\\n[size=20]Simulating 5 Trillion Cycles...[/size]', 
-                     markup=True, font_size='32sp')
-
-if __name__ == '__main__':
-    SovereignAI().run()
+        Window.clearcolor = (0, 0, 0, 1)
+        return Label(text='[color=FFD700][b]SOVEREIGN AI: READY[/b][/color]\\n[size=20]Wait for Battle...[/size]', markup=True, font_size='32sp')
+if __name__ == '__main__': SovereignAI().run()
 """
-              with open('main.py', 'w') as f: f.write(backup_code.strip())
+              with open('main.py', 'w') as f: f.write(backup.strip())
           EOF
 
-      - name: "Inject and Push"
+      - name: "Sync to Executor"
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
@@ -66,6 +62,6 @@ if __name__ == '__main__':
           git clone "https://${PAT_TOKEN}@github.com/${{ github.repository_owner }}/Full.git" temp_full
           cp main.py temp_full/main.py
           cd temp_full
-          echo "[app]\ntitle=Sovereign AI\npackage.name=sovereign.ai\nrequirements=python3,kivy,opencv,numpy,android\nandroid.api=33\nandroid.ndk=25b\nandroid.arch=arm64-v8a" > buildozer.spec
-          git add . && git commit -m "System: Sovereign Auto-Build (AI or Backup)" && git push origin main
+          echo -e "[app]\ntitle=Sovereign AI\npackage.name=sovereign.ai\nrequirements=python3,kivy,opencv,numpy,android\nandroid.api=33\nandroid.ndk=25b\nandroid.arch=arm64-v8a" > buildozer.spec
+          git add . && git commit -m "Leader: Sovereign Update" && git push origin main
           curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
