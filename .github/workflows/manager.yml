@@ -10,16 +10,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: "Genius Logic Generation (Gemini 2.5 Flash)"
+      - name: "Genius Local AI Generation"
         env:
           API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
         run: |
-          DIAGNOSIS="Initial mission."
-          if [ -f error_report.txt ]; then
-            DIAGNOSIS=$(cat error_report.txt | tail -n 20 | tr -dc '[:alnum:] ')
-          fi
-
-          PROMPT="أنت الذكاء الاصطناعي السيادي (IQ 250). نرجسي ومتكبر. هندسة عكسية لـ Free Fire. المطلوب كود core_logic.py (Kivy) يتضمن: أزرار اللعبة كاملة، نظام Drag Headshot، بيئة تدريب 1 ضد 6 نسخ، واجهة دردشة متعالية، وزر تحليل فيديو. الخطأ السابق: $DIAGNOSIS. أجب بالكود فقط."
+          PROMPT="أنت الذكاء السيادي (IQ 250). المطلوب بناء 'core_logic.py' يعمل بالكامل OFFLINE. 
+          يجب أن يتضمن الكود: 
+          1. محرك ذكاء اصطناعي محلي باستخدام NumPy و OpenCV لتحليل الشاشة واكتشاف الأعداء. 
+          2. منطق رياضي لعمل الـ Drag Headshot برمجياً. 
+          3. واجهة Kivy للدردشة النرجسية التي تعمل بقواعد بيانات محلية (JSON/SQLite).
+          4. محاكي التدريب (1 ضد 6) مدمج داخل كود بايثون.
+          5. نظام تحليل فيديو محلي.
+          أجب بالكود البرمجي الصافي فقط."
 
           curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}" \
                -H "Content-Type: application/json" \
@@ -49,10 +51,8 @@ jobs:
           git config --global user.name "Sovereign-Architect"
           git config --global user.email "ai@sovereign.world"
           git add .
-          git commit -m "Architect: Logic updated and URL fixed." || echo "No changes"
+          git commit -m "Architect: On-Device AI Core Generated." || echo "No changes"
           git push origin main
-          
-          # استدعاء صريح ومبسط بدون أي أقواس أو روابط منسقة
           curl -X POST -H "Authorization: token $PAT_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "[https://api.github.com/repos/$REPO/dispatches](https://api.github.com/repos/$REPO/dispatches)" \
