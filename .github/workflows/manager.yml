@@ -5,23 +5,26 @@ on:
     types: [wake_up_call, executor_failed]
 
 jobs:
-  sovereign_logic_repair:
+  sovereign_logic_refinement:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: "1. Pulling System Core"
+      - name: "1. Accessing Core Repository"
         uses: actions/checkout@v4
         with:
           repository: cczxjdxz-max/Full
           token: ${{ secrets.PAT }}
 
-      - name: "2. Gemini IQ 250: Engine Reconstruction"
+      - name: "2. Gemini IQ 250: Ultimate Reverse Engineering"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
-          ERROR_LOG="${{ github.event.client_payload.error || 'System Active' }}"
-          PROMPT="Act as Lelouch IQ 250. Perform Reverse Engineering for a Hitscan game. Focus: Accessibility Service control, Micro-tapping for zero spread, and Arabic dialect mastery for psychological play. If error exists ($ERROR_LOG), fix it. Output ONLY Python code."
+          ERROR_LOG="${{ github.event.client_payload.error || 'Stable Operation' }}"
+          PROMPT="Act as Lelouch IQ 250. Target: core_logic.py for Hitscan Battle Royale. 
+          Instructions: 1. Master Android Accessibility Service for touch. 2. Control Bullet Spread via high-speed micro-taps. 
+          3. Absolute Narcissism in logic. 4. Tactical feedback in all Arabic dialects (Saudi, Egyptian, Gulf, etc.). 
+          Current Error if any: $ERROR_LOG. Output ONLY Python code."
           
           RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GOOGLE_API_KEY" \
                -H "Content-Type: application/json" \
@@ -36,21 +39,16 @@ jobs:
           git reset --hard origin/main
           git clean -fd
           git add core_logic.py
-          git commit -m "Logic Reconstructed: Zero Spread Ready" || echo "Stable"
+          git commit -m "Strategic Logic Injected" || echo "Clean"
           git push origin main --force
           sleep 60
 
-      - name: "4. Deployment Signal (Protected Link)"
+      - name: "4. Deployment Signal (Anti-Markdown URL)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # حماية الرابط من خطأ Markdown bad range
           H="https://"
           G="api.github.com"
           R="/repos/cczxjdxz-max/Full/dispatches"
-          U="${H}${G}${R}"
-          
-          curl -X POST "$U" \
-               -H "Authorization: Bearer $PAT" \
-               -H "Accept: application/vnd.github+json" \
-               -d '{"event_type": "continue_mission"}'
+          FINAL_URL="${H}${G}${R}"
+          curl -X POST "$FINAL_URL" -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" -d '{"event_type": "continue_mission"}'
