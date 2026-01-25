@@ -16,8 +16,29 @@ jobs:
         run: |
           PROMPT="أنت الذكاء السيادي. المطلوب كود core_logic.py كامل (Kivy + Offline AI) لتحليل فري فاير وهيدشوت. أجب بالكود فقط."
           G_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
+          
           curl -X POST "$G_URL" -H "Content-Type: application/json" -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
-          python3 -c "import json, re; data = json.load(open('response.json')); content = data['candidates'][0]['content']['parts'][0]['text']; print(re.sub(r'^```python|^```|```$', '', content, flags=re.MULTILINE).strip())" > core_logic.py
+
+          # استخدام EOF لتجنب أخطاء الاقتباس في Bash
+          python3 << 'EOF'
+          import json, re, sys
+          try:
+              with open('response.json', 'r') as f:
+                  data = json.load(f)
+              if 'candidates' in data:
+                  content = data['candidates'][0]['content']['parts'][0]['text']
+                  # إزالة وسم python والـ backticks
+                  clean_code = re.sub(r'```python|```', '', content).strip()
+                  with open('core_logic.py', 'w') as f_out:
+                      f_out.write(clean_code)
+                  print("Logic extraction successful.")
+              else:
+                  print("Error in API response structure.")
+                  sys.exit(1)
+          except Exception as e:
+              print(f"Extraction failed: {e}")
+              sys.exit(1)
+          EOF
 
       - name: "Ship Logic to FULL Repo"
         env:
@@ -25,12 +46,13 @@ jobs:
         run: |
           git config --global user.name "Sovereign-Physician"
           git config --global user.email "ai@sovereign.world"
-          # استنساخ مستودع Full لإضافة الكود إليه
-          git clone https://${PAT_TOKEN}@[github.com/$](https://github.com/$){{ github.repository_owner }}/Full.git temp_full
+          
+          # استنساخ نظيف لمستودع Full
+          git clone "https://${PAT_TOKEN}@github.com/${{ github.repository_owner }}/Full.git" temp_full
           cp core_logic.py temp_full/
           cd temp_full
           git add core_logic.py
-          git commit -m "Physician: Injecting evolved core logic." || echo "No changes"
+          git commit -m "Physician: Injecting evolved core logic." || echo "No changes to logic"
           git push origin main
 
       - name: "Wake Up Executor in FULL"
@@ -38,12 +60,11 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT }}
           REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          P1="https"; P2="api.github.com"; P3="repos"
-          FULL_URL="${P1}://${P2}/${P3}/${REPO_OWNER}/Full/dispatches"
+          # بناء الرابط يدوياً لضمان عدم حدوث تداخل
+          FULL_URL="https://api.github.com/repos/${REPO_OWNER}/Full/dispatches"
           
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+          curl -X POST \
                -H "Authorization: token ${PAT_TOKEN}" \
                -H "Accept: application/vnd.github.v3+json" \
                -d '{"event_type": "execute_build"}' \
-               "${FULL_URL}")
-          echo "Full Repo Response: $RESPONSE"
+               "$FULL_URL"
