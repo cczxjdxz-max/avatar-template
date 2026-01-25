@@ -36,13 +36,15 @@ jobs:
                   with open('core_logic.py', 'w') as f_out:
                       f_out.write(clean_code)
               else:
-                  print("API Error:", json.dumps(data))
                   sys.exit(1)
-          except Exception as e:
+          except Exception:
               sys.exit(1)
           EOF
 
       - name: "Commit & Wake Up Executor"
+        env:
+          REPO: ${{ github.repository }}
+          PAT_TOKEN: ${{ secrets.PAT }}
         run: |
           git config --global user.name "Sovereign-Architect"
           git config --global user.email "ai@sovereign.world"
@@ -50,8 +52,8 @@ jobs:
           git commit -m "Architect: Logic updated via Gemini 2.5 Flash." || echo "No changes"
           git push origin main
           
-          # التصحيح هنا: استخدام المتغير البيئي للـ Repository بشكل سليم
-          curl -X POST -H "Authorization: token ${{ secrets.PAT }}" \
+          # استدعاء المنفذ باستخدام المتغيرات البيئية لتجنب خطأ الأقواس
+          curl -X POST -H "Authorization: token $PAT_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            [https://api.github.com/repos/$](https://api.github.com/repos/$){{ github.repository }}/dispatches \
+            "[https://api.github.com/repos/$REPO/dispatches](https://api.github.com/repos/$REPO/dispatches)" \
             -d '{"event_type": "execute_build"}'
