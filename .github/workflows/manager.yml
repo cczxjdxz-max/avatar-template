@@ -1,4 +1,4 @@
-name: 1. The Sovereign Physician (Quota Resilient)
+name: 1. The Sovereign Physician (Gemini Multi-Model Fix)
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -10,57 +10,66 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Sovereign AI Reasoning with Auto-Retry"
+      - name: "Sovereign AI Reasoning (Fallback Logic)"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           REPORTS: ${{ github.event.client_payload.task_reports || 'System Startup' }}
         run: |
           python3 << 'EOF'
-          import os, json, requests, sys, time
+          import os, json, requests, sys, time, re
 
           api_key = os.getenv('GOOGLE_API_KEY')
           reports = os.getenv('REPORTS')
           
-          prompt_text = f"أنت الذكاء السيادي. المهمة: كود Python لملف main.py (Kivy/OpenCV). المواصفات: واجهة سوداء وذهبية نرجسية، موسيقى هيبة، محاكاة 5 تريليون دورة. التقرير: {reports}. أصلح أي خطأ لضمان 'كل طلقة أحمر' في فري فاير (حساب ضيف). أجب بالكود فقط."
+          prompt_text = f"أنت الذكاء السيادي النرجسي. المطلوب كود Python لملف main.py (Kivy/OpenCV). المواصفات: واجهة سوداء وذهبية فخمة، موسيقى ملحمية، محاكاة 5 تريليون دورة. التقرير الميداني: {reports}. أصلح أي فشل لضمان 'كل طلقة أحمر' في فري فاير (حساب ضيف). أجب بالكود فقط."
           
-          # قائمة الموديلات المتاحة (بالترتيب من الأفضل للأكثر توفراً)
-          models = ["gemini-2.5-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
+          # الأسماء الدقيقة للموديلات في v1beta
+          models = [
+              "gemini-1.5-flash", 
+              "gemini-1.5-flash-8b",
+              "gemini-1.5-pro",
+              "gemini-2.0-flash-exp" # موديل إضافي قوي ومتاح غالباً
+          ]
           
           def try_generate(model_name):
               url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
               payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-              response = requests.post(url, json=payload)
-              return response
+              try:
+                  response = requests.post(url, json=payload, timeout=30)
+                  return response
+              except:
+                  return None
 
+          success = False
           for model in models:
-              print(f"Trying with model: {model}...")
+              print(f"Attempting with: {model}")
               res = try_generate(model)
+              if not res: continue
+              
               data = res.json()
               
               if res.status_code == 429:
-                  retry_after = 50 # الانتظار 50 ثانية حسب نصيحة جوجل
-                  print(f"Quota exceeded for {model}. Waiting {retry_after}s...")
-                  time.sleep(retry_after)
-                  # المحاولة مرة أخرى لنفس الموديل بعد الانتظار
-                  res = try_generate(model)
-                  data = res.json()
+                  print(f"Quota hit for {model}. Skipping to next...")
+                  continue
 
               if 'candidates' in data:
                   content = data['candidates'][0]['content']['parts'][0]['text']
-                  import re
                   clean_code = re.sub(r'```python|```', '', content).strip()
                   with open('main.py', 'w') as f:
                       f.write(clean_code)
-                  print(f"Success! Code generated using {model}")
-                  sys.exit(0)
+                  print(f"Success! Captured logic from {model}")
+                  success = True
+                  break
               else:
-                  print(f"Failed with {model}: {data.get('error', {}).get('message', 'Unknown error')}")
-          
-          print("All models failed or quota exceeded everywhere.")
-          sys.exit(1)
+                  print(f"Model {model} returned error: {data.get('error', {}).get('message', 'Unknown error')}")
+
+          if not success:
+              print("All models exhausted or unavailable. System standby.")
+              sys.exit(1)
           EOF
 
-      - name: "Deploy to Executor"
+      - name: "Inject to Executor"
+        if: success()
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
@@ -69,5 +78,5 @@ jobs:
           cp main.py temp_full/main.py
           cd temp_full
           echo "[app]\ntitle=Sovereign AI\npackage.name=sovereign.ai\nrequirements=python3,kivy,opencv,numpy,android\nandroid.api=33\nandroid.ndk=25b\nandroid.arch=arm64-v8a" > buildozer.spec
-          git add . && git commit -m "Leader: Resilient Update via Multi-Model" && git push origin main
+          git add . && git commit -m "Leader: Multi-model failover success" && git push origin main
           curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
