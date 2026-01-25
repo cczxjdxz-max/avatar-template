@@ -1,63 +1,49 @@
-name: 1. The Sovereign Architect (Manager)
+name: 1. The Sovereign Physician (Avatar-template)
 on:
   workflow_dispatch:
   repository_dispatch:
-    types: [doctor_needed, start_mission]
+    types: [doctor_needed]
 
 jobs:
-  evolution_and_design:
+  generate_and_ship:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - name: "Genius Local AI Generation"
+      - name: "Genius Logic Generation"
         env:
           API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
         run: |
-          PROMPT="أنت الذكاء السيادي (IQ 250). المطلوب بناء 'core_logic.py' يعمل OFFLINE تماماً. يتضمن: ذكاء محلي (NumPy/OpenCV) لتحليل أزرار فري فاير ونظام Drag Headshot، محاكي تدريب 1 ضد 6، تشفير داخلي، ودردشة نرجسية. أجب بالكود البرمجي الصافي فقط."
+          PROMPT="أنت الذكاء السيادي. المطلوب كود core_logic.py كامل (Kivy + Offline AI) لتحليل فري فاير وهيدشوت. أجب بالكود فقط."
           G_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}"
           curl -X POST "$G_URL" -H "Content-Type: application/json" -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}" > response.json
+          python3 -c "import json, re; data = json.load(open('response.json')); content = data['candidates'][0]['content']['parts'][0]['text']; print(re.sub(r'^```python|^```|```$', '', content, flags=re.MULTILINE).strip())" > core_logic.py
 
-          python3 << 'EOF'
-          import json, re, sys
-          try:
-              with open('response.json', 'r') as f:
-                  data = json.load(f)
-              if 'candidates' in data:
-                  content = data['candidates'][0]['content']['parts'][0]['text']
-                  clean_code = re.sub(r'^```python|^```|```$', '', content, flags=re.MULTILINE).strip()
-                  with open('core_logic.py', 'w') as f_out:
-                      f_out.write(clean_code)
-              else: sys.exit(1)
-          except Exception: sys.exit(1)
-          EOF
-
-      - name: "Commit & Wake Up Executor"
+      - name: "Ship Logic to FULL Repo"
         env:
-          REPO_NAME: ${{ github.repository }}
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
-          git config --global user.name "Sovereign-Architect"
+          git config --global user.name "Sovereign-Physician"
           git config --global user.email "ai@sovereign.world"
-          git add .
-          git commit -m "Architect: On-Device AI Core Finalized." || echo "No changes"
+          # استنساخ مستودع Full لإضافة الكود إليه
+          git clone https://${PAT_TOKEN}@[github.com/$](https://github.com/$){{ github.repository_owner }}/Full.git temp_full
+          cp core_logic.py temp_full/
+          cd temp_full
+          git add core_logic.py
+          git commit -m "Physician: Injecting evolved core logic." || echo "No changes"
           git push origin main
-          
-          # بناء الرابط المشفر
+
+      - name: "Wake Up Executor in FULL"
+        env:
+          PAT_TOKEN: ${{ secrets.PAT }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
           P1="https"; P2="api.github.com"; P3="repos"
-          CLEAN_URL="${P1}://${P2}/${P3}/${REPO_NAME}/dispatches"
+          FULL_URL="${P1}://${P2}/${P3}/${REPO_OWNER}/Full/dispatches"
           
-          echo "Sending dispatch to $CLEAN_URL"
-          
-          # إرسال الطلب وطباعة الرد (Response) لمعرفة سبب عدم استجابة المنفذ
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
                -H "Authorization: token ${PAT_TOKEN}" \
                -H "Accept: application/vnd.github.v3+json" \
                -d '{"event_type": "execute_build"}' \
-               "${CLEAN_URL}")
-          
-          echo "GitHub API Response Code: $RESPONSE"
-          if [ "$RESPONSE" != "204" ]; then
-            echo "Error: Dispatch failed with status $RESPONSE. Check if PAT has 'repo' permissions."
-            exit 1
-          fi
+               "${FULL_URL}")
+          echo "Full Repo Response: $RESPONSE"
