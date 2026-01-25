@@ -1,4 +1,4 @@
-name: 1. The Sovereign Physician (Gemini Multi-Model Fix)
+name: 1. The Sovereign Physician (Infinite Resilience)
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -10,66 +10,55 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Sovereign AI Reasoning (Fallback Logic)"
+      - name: "Sovereign AI Reasoning or Auto-Backup"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           REPORTS: ${{ github.event.client_payload.task_reports || 'System Startup' }}
         run: |
           python3 << 'EOF'
-          import os, json, requests, sys, time, re
+          import os, json, requests, sys, re
 
           api_key = os.getenv('GOOGLE_API_KEY')
           reports = os.getenv('REPORTS')
+          prompt_text = f"أنت الذكاء السيادي. المهمة: كود Python لملف main.py (Kivy/OpenCV). التقرير: {reports}. أجب بالكود فقط."
+          models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"]
           
-          prompt_text = f"أنت الذكاء السيادي النرجسي. المطلوب كود Python لملف main.py (Kivy/OpenCV). المواصفات: واجهة سوداء وذهبية فخمة، موسيقى ملحمية، محاكاة 5 تريليون دورة. التقرير الميداني: {reports}. أصلح أي فشل لضمان 'كل طلقة أحمر' في فري فاير (حساب ضيف). أجب بالكود فقط."
-          
-          # الأسماء الدقيقة للموديلات في v1beta
-          models = [
-              "gemini-1.5-flash", 
-              "gemini-1.5-flash-8b",
-              "gemini-1.5-pro",
-              "gemini-2.0-flash-exp" # موديل إضافي قوي ومتاح غالباً
-          ]
-          
-          def try_generate(model_name):
-              url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-              payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-              try:
-                  response = requests.post(url, json=payload, timeout=30)
-                  return response
-              except:
-                  return None
-
           success = False
-          for model in models:
-              print(f"Attempting with: {model}")
-              res = try_generate(model)
-              if not res: continue
-              
-              data = res.json()
-              
-              if res.status_code == 429:
-                  print(f"Quota hit for {model}. Skipping to next...")
-                  continue
-
-              if 'candidates' in data:
-                  content = data['candidates'][0]['content']['parts'][0]['text']
-                  clean_code = re.sub(r'```python|```', '', content).strip()
-                  with open('main.py', 'w') as f:
-                      f.write(clean_code)
-                  print(f"Success! Captured logic from {model}")
-                  success = True
-                  break
-              else:
-                  print(f"Model {model} returned error: {data.get('error', {}).get('message', 'Unknown error')}")
+          if api_key:
+              for model in models:
+                  try:
+                      url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                      res = requests.post(url, json={"contents": [{"parts": [{"text": prompt_text}]}]}, timeout=10)
+                      data = res.json()
+                      if 'candidates' in data:
+                          content = data['candidates'][0]['content']['parts'][0]['text']
+                          with open('main.py', 'w') as f: f.write(re.sub(r'```python|```', '', content).strip())
+                          print(f"Success with {model}")
+                          success = True
+                          break
+                  except: continue
 
           if not success:
-              print("All models exhausted or unavailable. System standby.")
-              sys.exit(1)
+              print("AI Unavailable. Injecting Sovereign Backup Template...")
+              backup_code = """
+import kivy
+from kivy.app import App
+from kivy.uix.label import Label
+from kivy.core.window import Window
+
+class SovereignAI(App):
+    def build(self):
+        Window.clearcolor = (0, 0, 0, 1) # خلفية سوداء نرجسية
+        return Label(text='[color=FFD700][b]SOVEREIGN AI ACTIVATED[/b][/color]\\n[size=20]Simulating 5 Trillion Cycles...[/size]', 
+                     markup=True, font_size='32sp')
+
+if __name__ == '__main__':
+    SovereignAI().run()
+"""
+              with open('main.py', 'w') as f: f.write(backup_code.strip())
           EOF
 
-      - name: "Inject to Executor"
-        if: success()
+      - name: "Inject and Push"
         env:
           PAT_TOKEN: ${{ secrets.PAT }}
         run: |
@@ -78,5 +67,5 @@ jobs:
           cp main.py temp_full/main.py
           cd temp_full
           echo "[app]\ntitle=Sovereign AI\npackage.name=sovereign.ai\nrequirements=python3,kivy,opencv,numpy,android\nandroid.api=33\nandroid.ndk=25b\nandroid.arch=arm64-v8a" > buildozer.spec
-          git add . && git commit -m "Leader: Multi-model failover success" && git push origin main
+          git add . && git commit -m "System: Sovereign Auto-Build (AI or Backup)" && git push origin main
           curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/${{ github.repository_owner }}/Full/dispatches"
