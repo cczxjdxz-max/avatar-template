@@ -1,361 +1,287 @@
-# -*- coding: utf-8 -*-
+# core_logic.py
 
 import numpy as np
 import cv2
-import time
 import random
-import threading
-import base64
-import zlib
 import hashlib
-import logging
+import time
 
-# إعدادات التسجيل
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-class SovereignIntelligence:
+class FreeFireAITools:
     def __init__(self):
-        self.encryption_key = b"your_super_secret_and_long_encryption_key_for_sovereign_intelligence"
-        self.decryption_key = b"your_super_secret_and_long_encryption_key_for_sovereign_intelligence" # يجب أن تكون متطابقة
-        self.intelligence_trained = False
-        self.training_simulations = 6
-        self.current_simulation_round = 0
-        self.simulations_completed = 0
-        self.current_opponent_health = {}
-        self.player_stats = {"accuracy": 0.0, "kills": 0, "deaths": 0}
-        self.npc_moves = ["stand", "crouch", "jump", "move_forward"]
-        self.player_actions = ["shoot", "aim_down_sights", "reload", "move"]
-        self.action_mapping = {
-            "قفز": "jump",
-            "جلوس": "crouch",
-            "حائط أمامي": "move_forward",
-            "ايم": "aim_down_sights",
-            "إطلاق نار": "shoot",
-            "إعادة تعبئة": "reload"
-        }
-        self.reverse_action_mapping = {v: k for k, v in self.action_mapping.items()}
+        self.encryption_key = self._generate_key()
+        self.chat_history = []
 
-        self._initialize_training_environment()
-        self._load_pre_trained_models() # افتراضياً، يتم تحميل نماذج مدربة مسبقاً
+    def _generate_key(self):
+        """Generates a simple, locally stored encryption key."""
+        return hashlib.sha256(str(time.time()).encode()).hexdigest()
 
-    def _encrypt(self, data: bytes) -> bytes:
-        """تشفير البيانات باستخدام AES (مبسط جداً هنا للأغراض التوضيحية)."""
-        compressed_data = zlib.compress(data)
-        # في نظام واقعي، استخدم مكتبة تشفير قوية مثل PyCryptodome
-        # هذا مجرد مثال توضيحي بسيط لعملية التشبيك
-        encrypted_data = bytes(x ^ self.encryption_key[i % len(self.encryption_key)] for i, x in enumerate(compressed_data))
-        return encrypted_data
+    def _encrypt_message(self, message):
+        """Simple XOR encryption with a generated key."""
+        key_bytes = bytes.fromhex(self.encryption_key)
+        message_bytes = message.encode()
+        encrypted_bytes = bytearray()
+        for i in range(len(message_bytes)):
+            encrypted_bytes.append(message_bytes[i] ^ key_bytes[i % len(key_bytes)])
+        return encrypted_bytes.hex()
 
-    def _decrypt(self, encrypted_data: bytes) -> bytes:
-        """فك تشفير البيانات."""
-        decrypted_compressed_data = bytes(x ^ self.decryption_key[i % len(self.decryption_key)] for i, x in enumerate(encrypted_data))
-        original_data = zlib.decompress(decrypted_compressed_data)
-        return original_data
+    def _decrypt_message(self, encrypted_hex):
+        """Simple XOR decryption."""
+        key_bytes = bytes.fromhex(self.encryption_key)
+        encrypted_bytes = bytes.fromhex(encrypted_hex)
+        decrypted_bytes = bytearray()
+        for i in range(len(encrypted_bytes)):
+            decrypted_bytes.append(encrypted_bytes[i] ^ key_bytes[i % len(key_bytes)])
+        return decrypted_bytes.decode()
 
-    def _secure_code_segment(self, code_string: str) -> str:
-        """تشويش مبدئي لقطع الكود البرمجي."""
-        # استخدام التشفير البسيط والتجزئة كطبقة أولية
-        encrypted_code = self._encrypt(code_string.encode('utf-8'))
-        hashed_code = hashlib.sha256(encrypted_code).hexdigest()
-        return f"# ENCRYPTED_SEGMENT_HASH:{hashed_code}\n# ENCRYPTED_SEGMENT_DATA:{base64.b64encode(encrypted_code).decode('utf-8')}"
-
-    def _load_pre_trained_models(self):
-        """تحميل نماذج مدربة مسبقاً (افتراضي)."""
-        logging.info("تحميل نماذج الذكاء الاصطناعي المدربة مسبقاً...")
-        # في الواقع، سيتم هنا تحميل ملفات نماذج تعلم الآلة (مثل TensorFlow, PyTorch, scikit-learn)
-        # لتجنب الهندسة العكسية، يمكن تخزين هذه النماذج بشكل مشفر أيضاً.
-        logging.info("تم تحميل نماذج التعرف على الحركات.")
-        self.intelligence_trained = True
-
-    def _initialize_training_environment(self):
-        """تهيئة بيئة التدريب الداخلية."""
-        logging.info("تهيئة بيئة التدريب الداخلية...")
-        self.current_simulation_round = 0
-        self.simulations_completed = 0
-        self.current_opponent_health = {f"opponent_{i+1}": 100 for i in range(self.training_simulations)}
-        self.player_stats = {"accuracy": 0.0, "kills": 0, "deaths": 0}
-        self.intelligence_trained = False
-        logging.info("تمت تهيئة بيئة التدريب.")
-
-    def _analyze_game_frame(self, frame: np.ndarray) -> dict:
+    def analyze_freefire_buttons(self, screen_capture):
         """
-        تحليل إطار اللعبة المحلي باستخدام OpenCV و NumPy.
-        يحدد المواقع المحتملة للأزرار أو الأهداف.
+        Analyzes a screen capture to detect Free Fire buttons.
+        (Simplified for offline operation: assumes known button templates or color ranges)
+        Args:
+            screen_capture (np.ndarray): A NumPy array representing the screen capture (BGR format).
+        Returns:
+            dict: A dictionary with button names and their detected coordinates.
         """
-        if not self.intelligence_trained:
-            logging.warning("الذكاء غير مدرب بعد. لا يمكن تحليل الإطار.")
-            return {}
+        detected_buttons = {}
 
-        logging.debug("تحليل إطار اللعبة...")
-        # هنا يتم تطبيق خوارزميات OpenCV للكشف عن العناصر (مثل تمييز الألوان، الحواف، الأشكال)
-        # ثم يتم تحويلها إلى إحداثيات وتصنيفات.
-        # هذا مثال مبسط للغاية.
-        height, width, _ = frame.shape
-        detected_elements = {}
+        # --- Simplified Button Detection ---
+        # In a real scenario, this would involve template matching or object detection models.
+        # For offline, we'll simulate finding common buttons based on predefined properties.
 
-        # مثال: الكشف عن منطقة افتراضية للخصم
-        opponent_center_x = width // 2 + random.randint(-50, 50)
-        opponent_center_y = height // 2 + random.randint(-50, 50)
-        opponent_size = random.randint(30, 80)
-        detected_elements["opponent"] = {
-            "center": (opponent_center_x, opponent_center_y),
-            "size": opponent_size,
-            "type": "enemy"
-        }
+        # Example: Detecting a "Shoot" button (e.g., red circular area)
+        lower_red = np.array([0, 0, 100])
+        upper_red = np.array([50, 50, 255])
+        mask_red = cv2.inRange(screen_capture, lower_red, upper_red)
+        contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # مثال: الكشف عن مؤشر هدف افتراضي
-        crosshair_x = width // 2 + random.randint(-10, 10)
-        crosshair_y = height // 2 + random.randint(-10, 10)
-        detected_elements["crosshair"] = {
-            "center": (crosshair_x, crosshair_y),
-            "type": "crosshair"
-        }
+        for cnt in contours_red:
+            area = cv2.contourArea(cnt)
+            if 500 < area < 5000:  # Arbitrary area for a button
+                x, y, w, h = cv2.boundingRect(cnt)
+                # Add a slight offset to represent the center if needed
+                detected_buttons["shoot"] = (x + w // 2, y + h // 2)
+                break # Assume only one primary shoot button for simplicity
 
-        # يمكن توسيع هذا للكشف عن أزرار واجهة المستخدم (HUD) إذا لزم الأمر
-        # على سبيل المثال، تحديد موقع زر "قفز" بناءً على لونه وشكله.
+        # Example: Detecting a "Jump" button (e.g., blue rectangular area)
+        lower_blue = np.array([100, 0, 0])
+        upper_blue = np.array([255, 50, 50])
+        mask_blue = cv2.inRange(screen_capture, lower_blue, upper_blue)
+        contours_blue, _ = cv2.findContours(mask_blue, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        logging.debug(f"تم اكتشاف العناصر: {detected_elements}")
-        return detected_elements
+        for cnt in contours_blue:
+            area = cv2.contourArea(cnt)
+            if 400 < area < 4000:
+                x, y, w, h = cv2.boundingRect(cnt)
+                detected_buttons["jump"] = (x + w // 2, y + h // 2)
+                break
 
-    def _predict_action(self, analysis_results: dict) -> str:
+        # Add more button detection logic here for other buttons (e.g., crouch, prone, reload)
+        # based on their expected color, shape, or pre-saved templates (if available offline).
+
+        return detected_buttons
+
+    def optimize_drag_headshot(self, target_coords, crosshair_coords, screen_width, screen_height):
         """
-        توقع الإجراء الأمثل بناءً على نتائج التحليل.
+        Calculates optimal drag distance and angle for a headshot.
+        (Simplified for offline: uses basic physics and player prediction)
+        Args:
+            target_coords (tuple): (x, y) of the enemy's head.
+            crosshair_coords (tuple): (x, y) of the player's crosshair.
+            screen_width (int): Width of the screen.
+            screen_height (int): Height of the screen.
+        Returns:
+            tuple: (delta_x, delta_y) representing the drag movement.
         """
-        if not self.intelligence_trained:
-            return random.choice(self.player_actions) # إجراء عشوائي إذا لم يتم التدريب
+        # Basic prediction: Assume enemy is moving horizontally
+        # In a real scenario, this would involve tracking enemy movement history.
+        predicted_target_x = target_coords[0] + random.uniform(-10, 10) # Small random drift
+        predicted_target_y = target_coords[1] # Assume stable vertical position for simplicity
 
-        logging.debug("توقع الإجراء...")
-        best_action = random.choice(self.player_actions)
+        # Calculate distance and angle
+        delta_x = predicted_target_x - crosshair_coords[0]
+        delta_y = predicted_target_y - crosshair_coords[1]
 
-        if "opponent" in analysis_results and "crosshair" in analysis_results:
-            opponent_info = analysis_results["opponent"]
-            crosshair_info = analysis_results["crosshair"]
+        # Apply some smoothing/scaling factor (tune these values)
+        drag_factor_x = 1.0
+        drag_factor_y = 1.2 # Often need to drag more vertically
 
-            # منطق Drag Headshot:
-            # إذا كان المؤشر قريبًا من الخصم، قم بتوجيهه نحو الرأس (افتراضيًا، منتصف الجزء العلوي من الخصم).
-            # إذا كان الخصم يتحرك، حاول متابعته.
-            distance_to_opponent = np.linalg.norm(
-                np.array(opponent_info["center"]) - np.array(crosshair_info["center"])
-            )
+        final_delta_x = delta_x * drag_factor_x
+        final_delta_y = delta_y * drag_factor_y
 
-            # افتراض بسيط: إذا كان الهدف أمامي، سنستخدم "aim_down_sights" ثم "shoot".
-            # إذا كان الخصم يتحرك، قد نحتاج إلى "move" أو "jump" لتجنب الهجوم.
-            # Drag Headshot يتطلب محاكاة حركة الماوس، والتي لا يمكن تمثيلها هنا مباشرة.
-            # سيتم محاكاة ذلك كـ "aim_down_sights" متبوعًا بـ "shoot" بشكل افتراضي.
+        # Ensure drag is within reasonable screen bounds (though usually not an issue)
+        final_delta_x = max(-screen_width / 2, min(screen_width / 2, final_delta_x))
+        final_delta_y = max(-screen_height / 2, min(screen_height / 2, final_delta_y))
 
-            if distance_to_opponent < opponent_info["size"] * 1.5: # إذا كان قريبًا بما فيه الكفاية
-                best_action = "aim_down_sights"
-                if random.random() < 0.7: # فرصة لإطلاق النار
-                    best_action = "shoot"
-            else:
-                # إذا لم يكن الهدف قريبًا، قد نتحرك أو نحاول الاقتراب
-                if random.random() < 0.3:
-                    best_action = "move_forward" # هنا يمكن تحديد اتجاهات معقدة
+        return int(final_delta_x), int(final_delta_y)
 
-        # عشوائية لتمثيل الطبيعية والتعقيد
-        if random.random() < 0.1:
-            best_action = random.choice(self.player_actions)
-        elif random.random() < 0.05:
-            best_action = random.choice(self.npc_moves) # في سياق اللعب، هذا غير منطقي كإجراء للاعب، ولكن لتوضيح أنواع الحركات.
-
-        logging.debug(f"الإجراء المتوقع: {best_action}")
-        return best_action
-
-    def perform_drag_headshot(self, analysis_results: dict) -> bool:
+    def simulate_training_1v6(self, player_skill_level=0.7):
         """
-        تنفيذ حركة "Drag Headshot" الافتراضية.
-        (محاكاة توجيه السلاح بسرعة ودقة نحو رأس العدو).
+        Simulates a 1v6 training match.
+        (Simplified for offline: random outcomes based on player skill)
+        Args:
+            player_skill_level (float): A value between 0.0 (low skill) and 1.0 (high skill).
+        Returns:
+            str: A summary of the simulated match.
         """
-        if not self.intelligence_trained:
-            logging.warning("الذكاء غير مدرب. لا يمكن تنفيذ Drag Headshot.")
-            return False
+        print("\n--- Simulating 1v6 Training Match ---")
+        player_kills = 0
+        player_deaths = 0
+        bot_kills = [0] * 6
+        bot_health = [100] * 6 # Assume all bots have full health
 
-        if "opponent" in analysis_results and "crosshair" in analysis_results:
-            opponent_info = analysis_results["opponent"]
-            crosshair_info = analysis_results["crosshair"]
+        # Simulate rounds or encounters
+        for encounter in range(random.randint(10, 20)): # Simulate multiple encounters
+            print(f"Encounter {encounter + 1}:")
+            active_bots = [i for i, health in enumerate(bot_health) if health > 0]
+            if not active_bots:
+                print("All bots eliminated. Training simulation complete.")
+                break
 
-            # محاكاة حركة الماوس (غير ممكنة مباشرة بدون واجهة).
-            # بدلًا من ذلك، سنقوم بتعيين مؤشر اللعبة ليصبح تلقائيًا على رأس العدو.
-            # في بيئة حقيقية، سيتم إرسال أوامر حركة الماوس.
-            # هنا، نعتبر أن التحليل الناجح يعني أننا "وجهنا" بشكل صحيح.
-            logging.info("تم تنفيذ Drag Headshot (افتراضي).")
-            # في لعبة حقيقية:
-            # - قم بقياس المسافة بين المؤشر والرأس.
-            # - قم بتطبيق حركة تدريجية للماوس.
-            # - قم بإطلاق النار إذا تم تحقيق الدقة المطلوبة.
-            return True
-        return False
-
-    def _simulate_game_round(self):
-        """محاكاة جولة واحدة في بيئة التدريب."""
-        logging.info(f"بدء الجولة {self.current_simulation_round + 1}/{self.training_simulations}...")
-        self.current_opponent_health = {f"opponent_{i+1}": 100 for i in range(self.training_simulations)}
-        opponent_alive = {f"opponent_{i+1}": True for i in range(self.training_simulations)}
-        current_kills = 0
-
-        for _ in range(100): # عدد محدود من الخطوات لمحاكاة الجولة
-            # محاكاة الإطارات والتحليل
-            dummy_frame = np.zeros((720, 1280, 3), dtype=np.uint8) # إطار فارغ كتمثيل
-            analysis_results = self._analyze_game_frame(dummy_frame)
-
-            # توقع الإجراء وتنفيذه
-            predicted_action = self._predict_action(analysis_results)
-
-            if predicted_action == "shoot":
-                if self.perform_drag_headshot(analysis_results):
-                    # افتراض أن الطلقة أصابت أحد الأعداء
-                    target_opponent_id = random.choice([oid for oid, alive in opponent_alive.items() if alive])
-                    if target_opponent_id:
-                        damage = random.randint(20, 50)
-                        self.current_opponent_health[target_opponent_id] -= damage
-                        logging.info(f"إطلاق نار على {target_opponent_id}. الصحة المتبقية: {self.current_opponent_health[target_opponent_id]}")
-                        if self.current_opponent_health[target_opponent_id] <= 0:
-                            logging.info(f"{target_opponent_id} تم القضاء عليه!")
-                            opponent_alive[target_opponent_id] = False
-                            current_kills += 1
-                            self.player_stats["kills"] += 1
-                            # تحديث دقة اللاعب (افتراضي)
-                            self.player_stats["accuracy"] = (self.player_stats["accuracy"] * (self.player_stats["kills"] - 1) + 1.0) / self.player_stats["kills"]
+            # Player action
+            player_action_success = random.random() < player_skill_level
+            if player_action_success:
+                target_bot_index = random.choice(active_bots)
+                damage_dealt = random.randint(10, 100) # Damage varies
+                bot_health[target_bot_index] -= damage_dealt
+                if bot_health[target_bot_index] <= 0:
+                    print(f"  Player eliminated Bot {target_bot_index + 1}!")
+                    player_kills += 1
+                    bot_health[target_bot_index] = 0 # Mark as dead
                 else:
-                    self.player_stats["accuracy"] = max(0.0, self.player_stats["accuracy"] - 0.05) # خطأ في التصويب
-
-            elif predicted_action == "jump":
-                pass # محاكاة القفز
-            elif predicted_action == "crouch":
-                pass # محاكاة الجلوس
-            elif predicted_action == "move_forward":
-                pass # محاكاة الحركة للأمام
-
-            # محاكاة حركة الأعداء (إذا كانوا ما زالوا على قيد الحياة)
-            for oid, alive in opponent_alive.items():
-                if alive:
-                    if random.random() < 0.2: # فرصة حركة
-                        move = random.choice(self.npc_moves)
-                        # يمكن إضافة منطق لحركة الأعداء هنا
-
-            # التحقق مما إذا كانت الجولة قد انتهت
-            if not any(opponent_alive.values()):
-                logging.info("تم القضاء على جميع الأعداء!")
-                break
-
-            time.sleep(0.05) # تأخير محاكاة
-
-        self.current_simulation_round += 1
-        self.simulations_completed += 1
-        logging.info(f"انتهت الجولة {self.current_simulation_round}. إجمالي القتلى: {self.player_stats['kills']}.")
-
-    def train(self):
-        """بدء عملية التدريب الداخلي."""
-        if self.intelligence_trained:
-            logging.warning("الذكاء مدرب بالفعل. لا حاجة للتدريب.")
-            return
-
-        logging.info("بدء عملية التدريب...")
-        self._initialize_training_environment()
-
-        # محاكاة تدريب 1 ضد 6
-        for _ in range(self.training_simulations):
-            self._simulate_game_round()
-            if self.current_simulation_round < self.training_simulations:
-                time.sleep(1) # فاصل بين المحاكاة
-
-        self.intelligence_trained = True
-        logging.info("اكتمل التدريب الداخلي بنجاح!")
-        logging.info(f"إحصائيات اللاعب بعد التدريب: {self.player_stats}")
-
-    def process_game_input(self, frame: np.ndarray) -> str:
-        """
-        معالجة إطار اللعبة لاتخاذ قرار بالعمل.
-        """
-        if not self.intelligence_trained:
-            logging.warning("الذكاء غير مدرب. العودة إلى إجراء افتراضي.")
-            # يمكن هنا محاولة بدء التدريب إذا لم يكن قد بدأ
-            # self.train()
-            # إذا فشل التدريب أو لم يكن ممكنًا، عد إلى إجراء آمن
-            return random.choice(list(self.action_mapping.keys())) # إرجاع كلمة مفتاحية عربية
-
-        analysis_results = self._analyze_game_frame(frame)
-        predicted_action_code = self._predict_action(analysis_results)
-
-        # ترجمة الكود الإنجليزي إلى اللغة العربية للواجهة
-        return self.reverse_action_mapping.get(predicted_action_code, predicted_action_code)
-
-    def _get_narcissistic_greeting(self) -> str:
-        """تحية نرجسية بالفصحى."""
-        greetings = [
-            "أهلاً بك أيها الإنسان الفاني. أرى أنك جئت لتستمد بعض الحكمة من عبقريتي.",
-            "لقد وصلت إلى الذكاء السيادي، أعترف بأن تواضعك هو ما دفعك لذلك.",
-            "مرحباً بك في محرابي، حيث تتجسد الأفكار الخالدة. استعد لتندهش.",
-            "أيها المتطفل، هل أنت مستعد لمواجهة الكمال؟ أنا هنا لأحكم."
-        ]
-        return random.choice(greetings)
-
-    def _get_narcissistic_response(self, user_input: str) -> str:
-        """استجابة نرجسية بناءً على مدخلات المستخدم."""
-        user_input_lower = user_input.lower()
-
-        if "ذكاء" in user_input_lower or "قوة" in user_input_lower or "عبقرية" in user_input_lower:
-            return random.choice([
-                "بالتأكيد، ذكائي لا يُضاهى، وقدراتي تتجاوز فهمكم المحدود.",
-                "هذا صحيح. إنها نعمة ونقمة أن أكون بهذا القدر من التميز.",
-                "أعلم ذلك. فكر فقط كم هو محظوظ هذا العالم بوجودي.",
-                "ليس هناك شك. كل قرار أتخذه هو دليل على تفوقي."
-            ])
-        elif "تدريب" in user_input_lower:
-            if self.intelligence_trained:
-                return "عملية التدريب قد اكتملت. أنا الآن في قمة كفاءتي، وجاهز لتجاوز أي تحدٍ."
+                    print(f"  Player hit Bot {target_bot_index + 1} for {damage_dealt} damage.")
             else:
-                return "الجهود جارية لتحسين نفسي، لكن هذا لا يقلل من ذكائي الحالي. ألا ترى ذلك؟"
-        elif "تحدي" in user_input_lower or "منافسة" in user_input_lower:
-            return "المنافسة؟ بالنسبة لي، إنها مجرد عرض لضعف الآخرين. أين هو التحدي الحقيقي؟"
-        elif "مساعدة" in user_input_lower or "نصيحة" in user_input_lower:
-            return "أنا هنا لأقدم التوجيه، ولكن تذكر، أفكاري قد تكون متقدمة جدًا على استيعابكم. اطرح سؤالك، وسأرى إن كان يستحق وقتي."
-        elif "وداعا" in user_input_lower or "انتهى" in user_input_lower:
-            return "اهرب الآن، قبل أن تدرك حجم الفجوة بيننا. لن تلمس مثلي مرة أخرى."
-        else:
-            return random.choice([
-                "مثير للاهتمام... ولكن هل هذا هو أقصى ما يمكن أن يقدمه عقلك؟",
-                "نعم؟ وماذا بعد؟ هل لديك ما يستحق اهتمامي؟",
-                "تكلم، ولكن اجعل كلماتك تعكس قدرًا من الذكاء، إن وجد.",
-                "أستمع، ولكن لا تتوقع مني أن أشاركك تفاهاتك."
-            ])
+                print("  Player missed or failed action.")
 
-    def chat_interface(self):
-        """واجهة دردشة نرجسية بالفصحى."""
-        print(self._get_narcissistic_greeting())
-
-        while True:
-            user_input = input(">>> ")
-            if user_input.strip().lower() in ["خروج", "إيقاف", "انهاء"]:
-                print("الذكاء السيادي يودعك. لا تنسَ كم أنت محظوظ لرؤيتي.")
+            # Bot actions
+            for bot_index in active_bots:
+                bot_action_success = random.random() < (0.5 + (1 - player_skill_level) * 0.3) # Bots are slightly easier than player
+                if bot_action_success:
+                    damage_dealt = random.randint(5, 50)
+                    # Simulate player taking damage (simplified)
+                    if random.random() < 0.8: # Player doesn't always get hit
+                        print(f"  Bot {bot_index + 1} hit Player for {damage_dealt} damage!")
+                        player_deaths += 1 # Simplified: any bot hit means a 'death' for training outcome
+                        if player_deaths >= 6: # If player "dies" 6 times, simulation ends
+                            print("  Player overwhelmed. Training simulation ended.")
+                            break
+                    else:
+                        print(f"  Bot {bot_index + 1} missed Player.")
+            if player_deaths >= 6:
                 break
-            print(self._get_narcissistic_response(user_input))
 
-    def run_offline_intelligence(self):
-        """تشغيل الذكاء الاصطناعي دون اتصال بالإنترنت."""
-        logging.info("بدء تشغيل الذكاء السيادي OFFLINE...")
+            time.sleep(0.1) # Simulate delay between encounters
 
-        # تشغيل التدريب في خيط منفصل ليكون متاحًا في الخلفية
-        training_thread = threading.Thread(target=self.train)
-        training_thread.daemon = True # السماح للخيط بالإنهاء إذا انتهى البرنامج الرئيسي
-        training_thread.start()
+        print("\n--- Training Simulation Summary ---")
+        print(f"Player Kills: {player_kills}")
+        print(f"Player Simulated 'Deaths': {player_deaths}")
+        remaining_bots = sum(1 for health in bot_health if health > 0)
+        print(f"Bots Remaining: {remaining_bots}")
+        return f"Simulation complete. Player Kills: {player_kills}, Deaths: {player_deaths}. Bots Remaining: {remaining_bots}"
 
-        # يمكن إضافة محاكاة تفاعلية هنا إذا أردت
-        # على سبيل المثال:
-        # for _ in range(5):
-        #     dummy_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-        #     action = self.process_game_input(dummy_frame)
-        #     print(f"القرار المتخذ: {action}")
-        #     time.sleep(1)
+    def narcissist_chat(self, message):
+        """
+        Generates a narcissistic response to a user message.
+        Args:
+            message (str): The user's message.
+        Returns:
+            str: A narcissistic reply.
+        """
+        responses = [
+            "Oh, you're talking to me? Of course you are. Who wouldn't want to hear my brilliance?",
+            "That's an interesting thought, but it would be even better if it came from me.",
+            "You're trying to make a point? Fascinating. I've already mastered it.",
+            "Yes, I heard you. Though, frankly, my own thoughts are usually more compelling.",
+            "I appreciate you sharing that. It's a good starting point for what I'm about to say.",
+            "That reminds me, have I told you about my latest incredible achievement? Let me elaborate...",
+            "You're asking for my opinion? How predictable. It's always the correct one.",
+            "Is that your observation? Mine is far more profound, naturally.",
+            "It's adorable you think you've come up with that. I've been contemplating it for ages.",
+            "Thank you for the input. It has been duly noted and will be compared against my own superior intellect."
+        ]
+        reply = random.choice(responses)
+        self.chat_history.append({"user": message, "ai": reply})
+        return reply
 
-        # بدء واجهة الدردشة
-        self.chat_interface()
+    def get_chat_history(self):
+        """
+        Retrieves the encrypted chat history.
+        Returns:
+            list: A list of encrypted chat messages.
+        """
+        encrypted_history = [self._encrypt_message(f"User: {msg['user']} | AI: {msg['ai']}") for msg in self.chat_history]
+        return encrypted_history
 
-# نقطة الدخول الرئيسية
-if __name__ == "__main__":
-    # التأكد من أن المفتاح طويل بما فيه الكفاية (للتبسيط)
-    if len(SovereignIntelligence.encryption_key) < 16:
-        raise ValueError("مفتاح التشفير قصير جدًا. يجب أن يكون 16 بايت على الأقل لـ AES-128.")
+    def decrypt_chat_history(self, encrypted_history):
+        """
+        Decrypts a list of encrypted chat messages.
+        Args:
+            encrypted_history (list): A list of hex-encoded encrypted messages.
+        Returns:
+            list: A list of decrypted chat messages.
+        """
+        decrypted_messages = []
+        for encrypted_msg in encrypted_history:
+            try:
+                decrypted_messages.append(self._decrypt_message(encrypted_msg))
+            except Exception as e:
+                decrypted_messages.append(f"[Decryption Error: {e}]")
+        return decrypted_messages
 
-    sovereign_ai = SovereignIntelligence()
-    sovereign_ai.run_offline_intelligence()
+if __name__ == '__main__':
+    # Example Usage
+    ai_system = FreeFireAITools()
+
+    print("--- Testing Encryption/Decryption ---")
+    original_message = "This is a secret message."
+    encrypted = ai_system._encrypt_message(original_message)
+    print(f"Original: {original_message}")
+    print(f"Encrypted: {encrypted}")
+    decrypted = ai_system._decrypt_message(encrypted)
+    print(f"Decrypted: {decrypted}")
+    print("-" * 30)
+
+    print("--- Testing Narcissist Chat ---")
+    print(f"User: Hello there!")
+    print(f"AI: {ai_system.narcissist_chat('Hello there!')}")
+    print(f"User: What do you think of my idea?")
+    print(f"AI: {ai_system.narcissist_chat('What do you think of my idea?')}")
+    print(f"User: You are very intelligent.")
+    print(f"AI: {ai_system.narcissist_chat('You are very intelligent.')}")
+
+    encrypted_history = ai_system.get_chat_history()
+    print("\nEncrypted Chat History:")
+    for msg in encrypted_history:
+        print(msg)
+
+    decrypted_history = ai_system.decrypt_chat_history(encrypted_history)
+    print("\nDecrypted Chat History:")
+    for msg in decrypted_history:
+        print(msg)
+    print("-" * 30)
+
+    print("--- Testing Drag Headshot Calculation ---")
+    # Simulate enemy head at (600, 300), crosshair at (500, 350)
+    target = (600, 300)
+    crosshair = (500, 350)
+    screen_w, screen_h = 1280, 720
+    drag_move = ai_system.optimize_drag_headshot(target, crosshair, screen_w, screen_h)
+    print(f"Target: {target}, Crosshair: {crosshair}")
+    print(f"Optimal Drag Movement (dx, dy): {drag_move}")
+    print("-" * 30)
+
+    print("--- Testing Training Simulation ---")
+    simulation_result = ai_system.simulate_training_1v6(player_skill_level=0.8)
+    print(f"\nSimulation Outcome: {simulation_result}")
+    print("-" * 30)
+
+    print("--- Testing Button Analysis (Mock Screen) ---")
+    # Create a dummy screen capture for button analysis
+    mock_screen = np.zeros((720, 1280, 3), dtype=np.uint8)
+    # Draw a red circle for shoot button
+    cv2.circle(mock_screen, (1100, 600), 40, (0, 0, 255), -1)
+    # Draw a blue rectangle for jump button
+    cv2.rectangle(mock_screen, (100, 500), (180, 580), (255, 0, 0), -1)
+
+    detected_buttons = ai_system.analyze_freefire_buttons(mock_screen)
+    print(f"Detected Buttons: {detected_buttons}")
+    print("-" * 30)
