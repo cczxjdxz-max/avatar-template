@@ -23,7 +23,7 @@ jobs:
           Mission: 
           1. DISSECT: Reverse-engineer 'Full Control' physics, 11-button layout, and spread reset timing.
           2. TRAIN: Simulate 5 trillion matches in a virtual sandbox.
-          3. ENTITY: Generate 'core_logic.py'. 
+          3. ENTITY: Generate 'core_logic.py' in Python. 
           Features: Smart movement (jiggles), Video Analysis module, Narcissistic persona, speaks Fusha, understands Arabic dialects. 
           Output ONLY the Python code."
 
@@ -39,19 +39,18 @@ jobs:
           git config --global user.name "Lelouch-Architect"
           git config --global user.email "architect@sovereign.ai"
           git add core_logic.py
-          git commit -m "5 Trillion Training Cycles Complete. Entity Born." || exit 0
+          git commit -m "5 Trillion Training Cycles Complete. Entity Evolved." || exit 0
           git push origin main --force
 
-      - name: "Wake Up The Executor (Immune Version)"
+      - name: "Wake Up The Executor (Base64 Shield)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # بناء الرابط يدوياً لمنع ظهور الأقواس المربعة اللعينة
-          BASE="[https://api.github.com](https://api.github.com)"
-          REPO="/repos/cczxjdxz-max/Full/dispatches"
-          URL="${BASE}${REPO}"
+          # الرابط مشفر لمنع المحرر من إضافة الأقواس المربعة
+          ENCODED_URL="aHR0cHM6Ly9hcGkuZ2l0aHViLmNvbS9yZXBvcy9jY3p4amR4ei1tYXgvRnVsbC9kaXNwYXRjaGVz"
+          FINAL_URL=$(echo "$ENCODED_URL" | base64 --decode)
           
-          curl -L -X POST "$URL" \
+          curl -L -X POST "$FINAL_URL" \
           -H "Authorization: Bearer $PAT" \
           -H "Accept: application/vnd.github+json" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
