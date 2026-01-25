@@ -42,11 +42,11 @@ jobs:
           git commit -m "5 Trillion Training Cycles Complete. Entity Evolved." || exit 0
           git push origin main --force
 
-      - name: "Wake Up The Executor (Base64 Shield)"
+      - name: "Wake Up The Executor (Shielded)"
         env:
           PAT: ${{ secrets.PAT }}
         run: |
-          # الرابط مشفر لمنع المحرر من إضافة الأقواس المربعة
+          # تشفير الرابط لمنع تلاعب المحرر بالنصوص (Base64)
           ENCODED_URL="aHR0cHM6Ly9hcGkuZ2l0aHViLmNvbS9yZXBvcy9jY3p4amR4ei1tYXgvRnVsbC9kaXNwYXRjaGVz"
           FINAL_URL=$(echo "$ENCODED_URL" | base64 --decode)
           
