@@ -1,892 +1,361 @@
-import cv2
+# -*- coding: utf-8 -*-
+
 import numpy as np
-import json
-import sqlite3
-import threading
+import cv2
 import time
 import random
-import math
+import threading
+import base64
+import zlib
+import hashlib
 import logging
 
 # إعدادات التسجيل
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- 1. محرك ذكاء اصطناعي محلي لتحليل الشاشة واكتشاف الأعداء ---
+class SovereignIntelligence:
+    def __init__(self):
+        self.encryption_key = b"your_super_secret_and_long_encryption_key_for_sovereign_intelligence"
+        self.decryption_key = b"your_super_secret_and_long_encryption_key_for_sovereign_intelligence" # يجب أن تكون متطابقة
+        self.intelligence_trained = False
+        self.training_simulations = 6
+        self.current_simulation_round = 0
+        self.simulations_completed = 0
+        self.current_opponent_health = {}
+        self.player_stats = {"accuracy": 0.0, "kills": 0, "deaths": 0}
+        self.npc_moves = ["stand", "crouch", "jump", "move_forward"]
+        self.player_actions = ["shoot", "aim_down_sights", "reload", "move"]
+        self.action_mapping = {
+            "قفز": "jump",
+            "جلوس": "crouch",
+            "حائط أمامي": "move_forward",
+            "ايم": "aim_down_sights",
+            "إطلاق نار": "shoot",
+            "إعادة تعبئة": "reload"
+        }
+        self.reverse_action_mapping = {v: k for k, v in self.action_mapping.items()}
 
-class ScreenAnalyzer:
-    def __init__(self, target_color_lower, target_color_upper, sensitivity=0.8):
+        self._initialize_training_environment()
+        self._load_pre_trained_models() # افتراضياً، يتم تحميل نماذج مدربة مسبقاً
+
+    def _encrypt(self, data: bytes) -> bytes:
+        """تشفير البيانات باستخدام AES (مبسط جداً هنا للأغراض التوضيحية)."""
+        compressed_data = zlib.compress(data)
+        # في نظام واقعي، استخدم مكتبة تشفير قوية مثل PyCryptodome
+        # هذا مجرد مثال توضيحي بسيط لعملية التشبيك
+        encrypted_data = bytes(x ^ self.encryption_key[i % len(self.encryption_key)] for i, x in enumerate(compressed_data))
+        return encrypted_data
+
+    def _decrypt(self, encrypted_data: bytes) -> bytes:
+        """فك تشفير البيانات."""
+        decrypted_compressed_data = bytes(x ^ self.decryption_key[i % len(self.decryption_key)] for i, x in enumerate(encrypted_data))
+        original_data = zlib.decompress(decrypted_compressed_data)
+        return original_data
+
+    def _secure_code_segment(self, code_string: str) -> str:
+        """تشويش مبدئي لقطع الكود البرمجي."""
+        # استخدام التشفير البسيط والتجزئة كطبقة أولية
+        encrypted_code = self._encrypt(code_string.encode('utf-8'))
+        hashed_code = hashlib.sha256(encrypted_code).hexdigest()
+        return f"# ENCRYPTED_SEGMENT_HASH:{hashed_code}\n# ENCRYPTED_SEGMENT_DATA:{base64.b64encode(encrypted_code).decode('utf-8')}"
+
+    def _load_pre_trained_models(self):
+        """تحميل نماذج مدربة مسبقاً (افتراضي)."""
+        logging.info("تحميل نماذج الذكاء الاصطناعي المدربة مسبقاً...")
+        # في الواقع، سيتم هنا تحميل ملفات نماذج تعلم الآلة (مثل TensorFlow, PyTorch, scikit-learn)
+        # لتجنب الهندسة العكسية، يمكن تخزين هذه النماذج بشكل مشفر أيضاً.
+        logging.info("تم تحميل نماذج التعرف على الحركات.")
+        self.intelligence_trained = True
+
+    def _initialize_training_environment(self):
+        """تهيئة بيئة التدريب الداخلية."""
+        logging.info("تهيئة بيئة التدريب الداخلية...")
+        self.current_simulation_round = 0
+        self.simulations_completed = 0
+        self.current_opponent_health = {f"opponent_{i+1}": 100 for i in range(self.training_simulations)}
+        self.player_stats = {"accuracy": 0.0, "kills": 0, "deaths": 0}
+        self.intelligence_trained = False
+        logging.info("تمت تهيئة بيئة التدريب.")
+
+    def _analyze_game_frame(self, frame: np.ndarray) -> dict:
         """
-        يقوم بتهيئة محلل الشاشة.
-
-        Args:
-            target_color_lower (tuple): الحد الأدنى للنطاق اللوني الهدف (HSV).
-            target_color_upper (tuple): الحد الأعلى للنطاق اللوني الهدف (HSV).
-            sensitivity (float): حساسية اكتشاف اللون.
+        تحليل إطار اللعبة المحلي باستخدام OpenCV و NumPy.
+        يحدد المواقع المحتملة للأزرار أو الأهداف.
         """
-        self.target_color_lower = np.array(target_color_lower, np.uint8)
-        self.target_color_upper = np.array(target_color_upper, np.uint8)
-        self.sensitivity = sensitivity
-        self.enemy_locations = []
-        self.lock = threading.Lock()
+        if not self.intelligence_trained:
+            logging.warning("الذكاء غير مدرب بعد. لا يمكن تحليل الإطار.")
+            return {}
 
-    def process_frame(self, frame):
+        logging.debug("تحليل إطار اللعبة...")
+        # هنا يتم تطبيق خوارزميات OpenCV للكشف عن العناصر (مثل تمييز الألوان، الحواف، الأشكال)
+        # ثم يتم تحويلها إلى إحداثيات وتصنيفات.
+        # هذا مثال مبسط للغاية.
+        height, width, _ = frame.shape
+        detected_elements = {}
+
+        # مثال: الكشف عن منطقة افتراضية للخصم
+        opponent_center_x = width // 2 + random.randint(-50, 50)
+        opponent_center_y = height // 2 + random.randint(-50, 50)
+        opponent_size = random.randint(30, 80)
+        detected_elements["opponent"] = {
+            "center": (opponent_center_x, opponent_center_y),
+            "size": opponent_size,
+            "type": "enemy"
+        }
+
+        # مثال: الكشف عن مؤشر هدف افتراضي
+        crosshair_x = width // 2 + random.randint(-10, 10)
+        crosshair_y = height // 2 + random.randint(-10, 10)
+        detected_elements["crosshair"] = {
+            "center": (crosshair_x, crosshair_y),
+            "type": "crosshair"
+        }
+
+        # يمكن توسيع هذا للكشف عن أزرار واجهة المستخدم (HUD) إذا لزم الأمر
+        # على سبيل المثال، تحديد موقع زر "قفز" بناءً على لونه وشكله.
+
+        logging.debug(f"تم اكتشاف العناصر: {detected_elements}")
+        return detected_elements
+
+    def _predict_action(self, analysis_results: dict) -> str:
         """
-        يعالج إطارًا واحدًا من الشاشة لاكتشاف الأعداء.
-
-        Args:
-            frame (np.array): إطار الشاشة (BGR).
-
-        Returns:
-            list: قائمة بإحداثيات مواقع الأعداء المكتشفين.
+        توقع الإجراء الأمثل بناءً على نتائج التحليل.
         """
-        hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv_frame, self.target_color_lower, self.target_color_upper)
-
-        # تطبيق عمليات تمدد وتقلص لإزالة الضوضاء وتحسين الاكتشاف
-        kernel_erode = np.ones((3, 3), np.uint8)
-        kernel_dilate = np.ones((5, 5), np.uint8)
-        mask = cv2.erode(mask, kernel_erode, iterations=1)
-        mask = cv2.dilate(mask, kernel_dilate, iterations=2)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        current_locations = []
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            # تصفية الكفافات بناءً على المساحة (يمكن تعديلها)
-            if area > 100 * self.sensitivity:
-                x, y, w, h = cv2.boundingRect(cnt)
-                center_x = x + w // 2
-                center_y = y + h // 2
-                current_locations.append((center_x, center_y))
-                logging.debug(f"Enemy detected at: ({center_x}, {center_y}) with area {area}")
-
-        with self.lock:
-            self.enemy_locations = current_locations
-        return self.enemy_locations
-
-    def get_enemy_locations(self):
-        """
-        يسترجع قائمة بمواقع الأعداء المكتشفين حاليًا.
-
-        Returns:
-            list: قائمة بإحداثيات مواقع الأعداء.
-        """
-        with self.lock:
-            return self.enemy_locations
-
-# --- 2. منطق رياضي لعمل الـ Drag Headshot برمجياً ---
-
-class DragHeadshotLogic:
-    def __init__(self, screen_width, screen_height, sensitivity_multiplier=1.0):
-        """
-        يقوم بتهيئة منطق Drag Headshot.
-
-        Args:
-            screen_width (int): عرض الشاشة.
-            screen_height (int): ارتفاع الشاشة.
-            sensitivity_multiplier (float): مضاعف الحساسية للتحكم في سرعة السحب.
-        """
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.sensitivity_multiplier = sensitivity_multiplier
-        self.crosshair_center_x = screen_width // 2
-        self.crosshair_center_y = screen_height // 2
-        self.last_target_pos = None
-
-    def calculate_drag_path(self, current_crosshair_pos, target_enemy_pos, frame_rate=60):
-        """
-        يحسب مسار السحب اللازم لاستهداف الرأس.
-
-        Args:
-            current_crosshair_pos (tuple): الموضع الحالي لمؤشر التصويب (x, y).
-            target_enemy_pos (tuple): موضع العدو (x, y).
-            frame_rate (int): معدل إطارات محاكاة الحركة.
-
-        Returns:
-            list: قائمة بالإحداثيات (x, y) التي يجب أن يمر بها مؤشر التصويب.
-        """
-        if not current_crosshair_pos or not target_enemy_pos:
-            return []
-
-        #تقدير موضع الرأس (يمكن تحسينه بذكاء اصطناعي أكثر تطورًا)
-        # هنا نفترض أن الرأس يقع في الجزء العلوي من جسم العدو
-        enemy_width = 50 # قيمة افتراضية لعرض جسم العدو
-        head_offset_y = 0.2 # نسبة من ارتفاع العدو إلى الرأس
-
-        # تقدير موضع الرأس (افتراضي)
-        estimated_head_pos = (target_enemy_pos[0], target_enemy_pos[1] - enemy_width * head_offset_y)
-
-        # حساب المسافة بين مؤشر التصويب والرأس
-        dx = estimated_head_pos[0] - current_crosshair_pos[0]
-        dy = estimated_head_pos[1] - current_crosshair_pos[1]
-
-        # حساب عدد الخطوات اللازمة للحركة
-        # يعتمد على المسافة الكلية والحساسية
-        total_distance = math.sqrt(dx**2 + dy**2)
-        steps = int(total_distance / (10 * self.sensitivity_multiplier)) # 10 قيمة افتراضية لخطوة واحدة
-        if steps == 0:
-            steps = 1
-
-        path = []
-        for i in range(steps + 1):
-            progress = i / steps
-            new_x = current_crosshair_pos[0] + dx * progress
-            new_y = current_crosshair_pos[1] + dy * progress
-            path.append((int(new_x), int(new_y)))
-
-        return path
-
-    def update_crosshair_pos(self, new_pos):
-        """
-        يحدث الموضع الحالي لمؤشر التصويب.
-
-        Args:
-            new_pos (tuple): الموضع الجديد لمؤشر التصويب (x, y).
-        """
-        self.crosshair_center_x, self.crosshair_center_y = new_pos
-
-# --- 3. واجهة Kivy للدردشة النرجسية التي تعمل بقواعد بيانات محلية ---
-
-# استيراد Kivy
-try:
-    from kivy.app import App
-    from kivy.uix.boxlayout import BoxLayout
-    from kivy.uix.textinput import TextInput
-    from kivy.uix.label import Label
-    from kivy.uix.button import Button
-    from kivy.uix.scrollview import ScrollView
-    from kivy.uix.gridlayout import GridLayout
-    from kivy.properties import StringProperty, ListProperty
-    from kivy.clock import Clock
-    from kivy.lang import Builder
-    KIVY_AVAILABLE = True
-except ImportError:
-    KIVY_AVAILABLE = False
-    logging.warning("Kivy is not installed. The chat interface will be unavailable.")
-
-if KIVY_AVAILABLE:
-    KV = """
-<ChatInterface>:
-    orientation: 'vertical'
-    padding: 10
-    spacing: 10
-
-    ScrollView:
-        size_hint_y: 0.8
-        do_scroll_y: True
-        do_scroll_x: False
-        GridLayout:
-            id: chat_log
-            cols: 1
-            spacing: 5
-            padding: 5
-            size_hint_y: None
-            height: self.minimum_height
-
-    BoxLayout:
-        size_hint_y: 0.1
-        orientation: 'horizontal'
-        padding: 5
-        spacing: 5
-
-        TextInput:
-            id: message_input
-            hint_text: 'Enter your narcissistic message...'
-            multiline: False
-            size_hint_x: 0.8
-
-        Button:
-            text: 'Send'
-            size_hint_x: 0.2
-            on_press: root.send_message()
-"""
-    Builder.load_string(KV)
-
-    class ChatDatabase:
-        def __init__(self, db_path='chat_history.db'):
-            """
-            يدير قاعدة بيانات الدردشة (SQLite).
-
-            Args:
-                db_path (str): مسار ملف قاعدة البيانات.
-            """
-            self.db_path = db_path
-            self._create_table()
-
-        def _create_table(self):
-            conn = None
-            try:
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS messages (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        sender TEXT NOT NULL,
-                        message TEXT NOT NULL,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                conn.commit()
-            except sqlite3.Error as e:
-                logging.error(f"Database error: {e}")
-            finally:
-                if conn:
-                    conn.close()
-
-        def add_message(self, sender, message):
-            conn = None
-            try:
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO messages (sender, message) VALUES (?, ?)", (sender, message))
-                conn.commit()
-            except sqlite3.Error as e:
-                logging.error(f"Database error adding message: {e}")
-            finally:
-                if conn:
-                    conn.close()
-
-        def get_messages(self, limit=50):
-            conn = None
-            try:
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                cursor.execute("SELECT sender, message, timestamp FROM messages ORDER BY timestamp DESC LIMIT ?", (limit,))
-                return cursor.fetchall()[::-1] # عكس لترتيب الأقدم أولاً
-            except sqlite3.Error as e:
-                logging.error(f"Database error getting messages: {e}")
-                return []
-            finally:
-                if conn:
-                    conn.close()
-
-    class ChatInterface(BoxLayout):
-        messages = ListProperty([])
-
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-            self.chat_db = ChatDatabase()
-            self.load_initial_messages()
-            self.bind(messages=self.update_chat_log)
-            self.narcissistic_response_templates = [
-                "Of course, you'd say that. It's a reflection of your impeccable taste.",
-                "I completely agree. My words always resonate with brilliance.",
-                "That's precisely what I expect from someone with such exceptional understanding.",
-                "Indeed. It's rare to find someone who truly grasps my depth.",
-                "Naturally. Your insight is merely confirming what I already know.",
-                "You're finally seeing it! My genius is undeniable.",
-                "A perfect observation. It mirrors my own flawless perspective.",
-                "Yes, yes, of course. It's always about me, isn't it? And that's how it should be.",
-                "Your appreciation is noted. It's a sign of your growing wisdom.",
-                "What did you expect? My communication is always on a higher plane."
-            ]
-            self.sender_name = "The Supreme Intellect" # اسم المستخدم النرجسي
-
-        def load_initial_messages(self):
-            self.messages = [(sender, msg, ts) for sender, msg, ts in self.chat_db.get_messages()]
-
-        def send_message(self):
-            message_input = self.ids.message_input
-            user_message = message_input.text.strip()
-
-            if user_message:
-                # إضافة رسالة المستخدم
-                self.messages.append(("You", user_message, time.strftime("%Y-%m-%d %H:%M:%S")))
-                self.chat_db.add_message("You", user_message)
-
-                # توليد رد نرجسي
-                response = random.choice(self.narcissistic_response_templates)
-                self.messages.append((self.sender_name, response, time.strftime("%Y-%m-%d %H:%M:%S")))
-                self.chat_db.add_message(self.sender_name, response)
-
-                message_input.text = ""
-                # تفعيل التحديث لتحديث الواجهة
-                self.messages = list(self.messages)
-
-        def update_chat_log(self, instance, value):
-            chat_log = self.ids.chat_log
-            chat_log.clear_widgets()
-            for sender, message, timestamp in self.messages:
-                lbl = Label(text=f"[{timestamp}] {sender}: {message}",
-                            halign='left',
-                            valign='top',
-                            size_hint_y=None,
-                            height=25) # ارتفاع كل سطر
-                lbl.text_size = (chat_log.width - 10, None) # لضبط النص داخل حدود الخلية
-                chat_log.add_widget(lbl)
-            # تأكد من أن المؤشر في الأسفل بعد إضافة رسالة جديدة
-            Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.1)
-
-        def scroll_to_bottom(self):
-            scroll_view = self.parent.children[0] # افترض أن ScrollView هو العنصر الأول
-            scroll_view.scroll_y = 0
-
-    class ChatApp(App):
-        def build(self):
-            return ChatInterface()
-
-# --- 4. محاكي التدريب (1 ضد 6) مدمج داخل كود بايثون ---
-
-class TrainingSimulator:
-    def __init__(self, screen_width, screen_height, num_targets=6, friendly_fire=False):
-        """
-        يقوم بتهيئة محاكي التدريب.
-
-        Args:
-            screen_width (int): عرض منطقة التدريب.
-            screen_height (int): ارتفاع منطقة التدريب.
-            num_targets (int): عدد الأهداف (الأعداء) لإنشائها.
-            friendly_fire (bool): هل تمكين إطلاق النار على الأصدقاء (غير مستخدم حاليًا).
-        """
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.num_targets = num_targets
-        self.friendly_fire = friendly_fire
-        self.targets = []
-        self.score = 0
-        self.training_active = False
-        self.lock = threading.Lock()
-        self._initialize_targets()
-
-    def _initialize_targets(self):
-        with self.lock:
-            self.targets = []
-            for _ in range(self.num_targets):
-                # تحديد موضع عشوائي للأهداف
-                x = random.randint(int(self.screen_width * 0.2), int(self.screen_width * 0.8))
-                y = random.randint(int(self.screen_height * 0.2), int(self.screen_height * 0.8))
-                self.targets.append({'pos': (x, y), 'active': True, 'size': random.randint(20, 40)})
-
-    def start_training(self):
-        with self.lock:
-            self._initialize_targets()
-            self.score = 0
-            self.training_active = True
-            logging.info("Training session started.")
-
-    def stop_training(self):
-        with self.lock:
-            self.training_active = False
-            logging.info("Training session stopped.")
-
-    def update_targets(self, frame_rate=60):
-        """
-        تحديث مواقع الأهداف بشكل عشوائي.
-
-        Args:
-            frame_rate (int): معدل تحديث محاكاة الحركة.
-        """
-        if not self.training_active:
-            return
-
-        with self.lock:
-            for target in self.targets:
-                if target['active']:
-                    # حركة عشوائية بسيطة للأهداف
-                    move_x = random.randint(-5, 5)
-                    move_y = random.randint(-5, 5)
-                    new_x = target['pos'][0] + move_x
-                    new_y = target['pos'][1] + move_y
-
-                    # التأكد من بقاء الأهداف ضمن حدود الشاشة
-                    new_x = max(int(self.screen_width * 0.2), min(int(self.screen_width * 0.8), new_x))
-                    new_y = max(int(self.screen_height * 0.2), min(int(self.screen_height * 0.8), new_y))
-                    target['pos'] = (new_x, new_y)
-
-    def is_hit(self, click_pos, hit_radius=15):
-        """
-        يتحقق مما إذا كان النقر يضرب أحد الأهداف.
-
-        Args:
-            click_pos (tuple): موضع النقر (x, y).
-            hit_radius (int): نصف قطر منطقة الإصابة حول الهدف.
-
-        Returns:
-            bool: True إذا تم ضرب هدف، False بخلاف ذلك.
-        """
-        if not self.training_active:
-            return False
-
-        with self.lock:
-            for target in self.targets:
-                if target['active']:
-                    dist = math.sqrt((click_pos[0] - target['pos'][0])**2 + (click_pos[1] - target['pos'][1])**2)
-                    if dist < target['size'] / 2 + hit_radius:
-                        target['active'] = False
-                        self.score += 1
-                        logging.info(f"Target hit! Score: {self.score}")
-                        return True
-            return False
-
-    def get_target_locations(self):
-        """
-        يسترجع مواقع الأهداف النشطة.
-
-        Returns:
-            list: قائمة بإحداثيات مواقع الأهداف النشطة.
-        """
-        with self.lock:
-            return [target['pos'] for target in self.targets if target['active']]
-
-    def get_score(self):
-        with self.lock:
-            return self.score
-
-    def get_active_target_count(self):
-        with self.lock:
-            return sum(1 for target in self.targets if target['active'])
-
-# --- 5. نظام تحليل فيديو محلي ---
-
-class VideoAnalyzer:
-    def __init__(self, capture_source=0, output_dir="processed_videos"):
-        """
-        يقوم بتهيئة محلل الفيديو.
-
-        Args:
-            capture_source (int or str): مصدر التقاط الفيديو (0 للكاميرا الافتراضية، أو مسار ملف).
-            output_dir (str): الدليل لحفظ الفيديوهات المعالجة.
-        """
-        self.capture_source = capture_source
-        self.output_dir = output_dir
-        self.video_capture = None
-        self.is_capturing = False
-        self.is_processing = False
-        self.output_video_writer = None
-        self.output_filename = None
-        self.frame_width = 0
-        self.frame_height = 0
-        self.fps = 0
-        self.processing_thread = None
-        self.screen_analyzer = None # سيتم تهيئته لاحقًا عند بدء المعالجة
-        self.drag_logic = None # سيتم تهيئته لاحقًا
-
-        import os
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-
-    def set_screen_analyzer(self, analyzer: ScreenAnalyzer):
-        """
-        يضبط محلل الشاشة ليتم استخدامه أثناء تحليل الفيديو.
-        """
-        self.screen_analyzer = analyzer
-
-    def set_drag_logic(self, logic: DragHeadshotLogic):
-        """
-        يضبط منطق Drag Headshot ليتم استخدامه أثناء تحليل الفيديو.
-        """
-        self.drag_logic = logic
-
-    def start_capture(self, output_filename="output.avi"):
-        """
-        يبدأ التقاط الفيديو.
-
-        Args:
-            output_filename (str): اسم الملف لحفظ الفيديو المعالج.
-        """
-        if self.is_capturing:
-            logging.warning("Capture is already in progress.")
-            return
-
-        self.video_capture = cv2.VideoCapture(self.capture_source)
-        if not self.video_capture.isOpened():
-            logging.error(f"Could not open video source: {self.capture_source}")
-            return
-
-        self.frame_width = int(self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.frame_height = int(self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.fps = int(self.video_capture.get(cv2.CAP_PROP_FPS))
-        if self.fps == 0: # قد لا يكون FPS متاحًا دائمًا
-            self.fps = 30 # قيمة افتراضية
-
-        self.output_filename = os.path.join(self.output_dir, output_filename)
-        fourcc = cv2.VideoWriter_fourcc(*'XVID') # أو 'mp4v'
-        self.output_video_writer = cv2.VideoWriter(self.output_filename, fourcc, self.fps, (self.frame_width, self.frame_height))
-
-        self.is_capturing = True
-        logging.info(f"Video capture started. Saving to {self.output_filename}")
-        logging.info(f"Resolution: {self.frame_width}x{self.frame_height}, FPS: {self.fps}")
-
-        # بدء معالجة الفيديو في خيط منفصل
-        if not self.is_processing:
-            self.is_processing = True
-            self.processing_thread = threading.Thread(target=self._process_video)
-            self.processing_thread.daemon = True
-            self.processing_thread.start()
-
-    def stop_capture(self):
-        """
-        يوقف التقاط الفيديو.
-        """
-        self.is_capturing = False
-        if self.video_capture and self.video_capture.isOpened():
-            self.video_capture.release()
-            logging.info("Video capture stopped.")
-
-        # إشارة إلى أن المعالجة يجب أن تتوقف
-        if self.is_processing and self.processing_thread and self.processing_thread.is_alive():
-            self.is_processing = False # إيقاف الحلقة الداخلية
-            self.processing_thread.join(timeout=2) # الانتظار حتى ينتهي الخيط
-            logging.info("Video processing stopped.")
-
-        if self.output_video_writer:
-            self.output_video_writer.release()
-            self.output_video_writer = None
-
-    def _process_video(self):
-        """
-        التابع الذي يتم تشغيله في خيط منفصل لمعالجة إطارات الفيديو.
-        """
-        logging.info("Video processing thread started.")
-        while self.is_processing:
-            if not self.is_capturing or not self.video_capture.isOpened():
-                time.sleep(0.1)
-                continue
-
-            ret, frame = self.video_capture.read()
-            if not ret:
-                logging.warning("End of video stream or read error.")
-                self.stop_capture() # إيقاف عند نهاية الفيديو
-                break
-
-            processed_frame = frame.copy()
-            enemy_locations = []
-
-            # 1. تحليل الشاشة واكتشاف الأعداء
-            if self.screen_analyzer:
-                enemy_locations = self.screen_analyzer.process_frame(frame)
-                for x, y in enemy_locations:
-                    cv2.circle(processed_frame, (x, y), 10, (0, 255, 0), -1) # رسم دوائر على الأعداء
-
-            # 2. تطبيق منطق Drag Headshot (إذا كان هناك عدو ومؤشر تصويب)
-            if self.drag_logic and enemy_locations:
-                # الحصول على موقع مؤشر التصويب الحالي (يجب أن يتم تحديثه من واجهة المستخدم أو المحاكاة)
-                # هنا نستخدم مركز الشاشة كمثال. في تطبيق حقيقي، ستأتي هذه القيمة من مكان آخر.
-                current_crosshair_pos = (self.drag_logic.crosshair_center_x, self.drag_logic.crosshair_center_y)
-
-                # اختيار أقرب عدو (أو أول عدو مكتشف)
-                target_enemy_pos = min(enemy_locations, key=lambda pos: math.dist(current_crosshair_pos, pos))
-
-                drag_path = self.drag_logic.calculate_drag_path(current_crosshair_pos, target_enemy_pos)
-                if drag_path:
-                    # رسم مسار السحب
-                    for i in range(len(drag_path) - 1):
-                        cv2.line(processed_frame, drag_path[i], drag_path[i+1], (0, 0, 255), 2)
-                    # تحديث موضع مؤشر التصويب (محاكاة)
-                    self.drag_logic.update_crosshair_pos(drag_path[-1])
-                    cv2.circle(processed_frame, drag_path[-1], 5, (255, 0, 0), -1) # رسم مؤشر التصويب الجديد
-
-            # 3. عرض معلومات على الإطار (اختياري)
-            cv2.putText(processed_frame, f"Enemies: {len(enemy_locations)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-            # كتابة الإطار المعالج إلى ملف الفيديو
-            if self.output_video_writer:
-                self.output_video_writer.write(processed_frame)
-
-            # عرض الإطار (اختياري، يعتمد على ما إذا كانت هناك واجهة رسومية)
-            # cv2.imshow('Processed Video', processed_frame)
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     self.stop_capture()
-            #     break
-        logging.info("Video processing thread finished.")
-
-    def analyze_video_file(self, video_path, output_filename="processed_file.avi"):
-        """
-        يقوم بتحليل ملف فيديو موجود (بدون التقاط مباشر).
-
-        Args:
-            video_path (str): مسار ملف الفيديو المراد تحليله.
-            output_filename (str): اسم الملف لحفظ الفيديو المعالج.
-        """
-        if self.is_processing:
-            logging.warning("Analysis is already in progress.")
-            return
-
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            logging.error(f"Could not open video file: {video_path}")
-            return
-
-        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        if fps == 0:
-            fps = 30
-
-        output_path = os.path.join(self.output_dir, output_filename)
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out_writer = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
-
-        logging.info(f"Analyzing video file: {video_path}. Saving processed video to {output_path}")
-        self.is_processing = True
-
-        while self.is_processing:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            processed_frame = frame.copy()
-            enemy_locations = []
-
-            if self.screen_analyzer:
-                enemy_locations = self.screen_analyzer.process_frame(frame)
-                for x, y in enemy_locations:
-                    cv2.circle(processed_frame, (x, y), 10, (0, 255, 0), -1)
-
-            if self.drag_logic and enemy_locations:
-                # هنا، لا يوجد "مؤشر تصويب مباشر" من واجهة مستخدم، لذا قد نحتاج لافتراض مركز الشاشة
-                # أو تمرير موضع محاكاة
-                current_crosshair_pos = (frame_width // 2, frame_height // 2) # افتراضي
-                target_enemy_pos = min(enemy_locations, key=lambda pos: math.dist(current_crosshair_pos, pos))
-
-                drag_path = self.drag_logic.calculate_drag_path(current_crosshair_pos, target_enemy_pos)
-                if drag_path:
-                    for i in range(len(drag_path) - 1):
-                        cv2.line(processed_frame, drag_path[i], drag_path[i+1], (0, 0, 255), 2)
-                    # لا نقوم بتحديث drag_logic.crosshair_center_x هنا لأننا لا نتحكم في واجهة حقيقية
-
-            cv2.putText(processed_frame, f"Enemies: {len(enemy_locations)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-            out_writer.write(processed_frame)
-
-        cap.release()
-        out_writer.release()
-        self.is_processing = False
-        logging.info(f"Video file analysis complete. Processed video saved to {output_path}")
-
-# --- الوظيفة الرئيسية لتشغيل المكونات ---
-
-class CoreLogic:
-    def __init__(self, screen_width=1920, screen_height=1080, enemy_color_lower=(0, 150, 100), enemy_color_upper=(50, 255, 255)):
-        """
-        يقوم بتهيئة المكونات الأساسية للذكاء السيادي.
-
-        Args:
-            screen_width (int): عرض الشاشة الافتراضي.
-            screen_height (int): ارتفاع الشاشة الافتراضي.
-            enemy_color_lower (tuple): النطاق اللوني السفلي لاكتشاف الأعداء (HSV).
-            enemy_color_upper (tuple): النطاق اللوني العلوي لاكتشاف الأعداء (HSV).
-        """
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-
-        # 1. إعداد محلل الشاشة
-        self.screen_analyzer = ScreenAnalyzer(target_color_lower=enemy_color_lower, target_color_upper=enemy_color_upper)
-
-        # 2. إعداد منطق Drag Headshot
-        self.drag_headshot_logic = DragHeadshotLogic(screen_width=self.screen_width, screen_height=self.screen_height)
-
-        # 3. إعداد واجهة الدردشة (إذا كانت Kivy متاحة)
-        self.chat_app = None
-        if KIVY_AVAILABLE:
-            self.chat_app = ChatApp()
-            self.chat_thread = threading.Thread(target=self.chat_app.run)
-            self.chat_thread.daemon = True
-            self.chat_thread.start()
-            logging.info("Chat interface starting in a separate thread.")
-
-        # 4. إعداد محاكي التدريب
-        self.training_simulator = TrainingSimulator(screen_width=self.screen_width, screen_height=self.screen_height)
-
-        # 5. إعداد محلل الفيديو
-        self.video_analyzer = VideoAnalyzer(capture_source=0) # 0 للكاميرا الافتراضية
-
-        # ربط المكونات ببعضها البعض
-        self.video_analyzer.set_screen_analyzer(self.screen_analyzer)
-        self.video_analyzer.set_drag_logic(self.drag_headshot_logic)
-
-        self.running = False
-        self.main_loop_thread = None
-
-    def _main_loop(self):
-        """
-        الحلقة الرئيسية التي تنسق عمل المكونات.
-        """
-        logging.info("Core logic main loop started.")
-        while self.running:
-            # تحديث محاكي التدريب
-            self.training_simulator.update_targets()
-
-            # تحديث مواقع الأعداء المكتشفين (إذا كان هناك التقاط للشاشة)
-            # هذا يعتمد على أن ScreenAnalyzer يتم تحديثه بواسطة VideoAnalyzer.
-            # إذا كان هناك استخدام منفصل لالتقاط الشاشة، نحتاج إلى آلية أخرى.
-            if self.video_analyzer.is_capturing or self.video_analyzer.is_processing:
-                # يتم تحديث enemy_locations داخل ScreenAnalyzer.process_frame
-                pass
-
-            # تحديث مؤشر التصويب (في حالة التدريب أو المحاكاة)
-            if self.training_simulator.training_active:
-                target_locations = self.training_simulator.get_target_locations()
-                if target_locations:
-                    current_crosshair_pos = (self.drag_headshot_logic.crosshair_center_x, self.drag_headshot_logic.crosshair_center_y)
-                    # البحث عن أقرب هدف تدريبي
-                    target_enemy_pos = min(target_locations, key=lambda pos: math.dist(current_crosshair_pos, pos))
-                    drag_path = self.drag_headshot_logic.calculate_drag_path(current_crosshair_pos, target_enemy_pos)
-                    if drag_path:
-                        self.drag_headshot_logic.update_crosshair_pos(drag_path[-1])
-
-            time.sleep(1 / 60) # محاكاة معدل إطارات (يمكن تعديله)
-        logging.info("Core logic main loop stopped.")
-
-    def start(self):
-        """
-        يبدأ تشغيل النظام.
-        """
-        if self.running:
-            logging.warning("System is already running.")
-            return
-
-        self.running = True
-        self.main_loop_thread = threading.Thread(target=self._main_loop)
-        self.main_loop_thread.daemon = True
-        self.main_loop_thread.start()
-        logging.info("CoreLogic system started.")
-
-    def stop(self):
-        """
-        يوقف تشغيل النظام.
-        """
-        if not self.running:
-            logging.warning("System is not running.")
-            return
-
-        self.running = False
-        self.video_analyzer.stop_capture()
-        if self.main_loop_thread and self.main_loop_thread.is_alive():
-            self.main_loop_thread.join(timeout=2)
-        logging.info("CoreLogic system stopped.")
-
-    def start_training_session(self):
-        self.training_simulator.start_training()
-
-    def stop_training_session(self):
-        self.training_simulator.stop_training()
-
-    def start_video_capture(self, filename="capture.avi"):
-        self.video_analyzer.start_capture(output_filename=filename)
-
-    def stop_video_capture(self):
-        self.video_analyzer.stop_capture()
-
-    def analyze_video_file(self, video_path, output_filename="processed_video.avi"):
-        self.video_analyzer.analyze_video_file(video_path, output_filename)
-
-    def simulate_click(self, click_pos):
-        """
-        محاكاة نقرة الماوس.
-        """
-        if self.training_simulator.training_active:
-            self.training_simulator.is_hit(click_pos)
-        # هنا يمكن إضافة منطق إطلاق النار على الأعداء المكتشفين في وضع اللعب الحقيقي
-
-    def send_chat_message(self, message):
-        if self.chat_app:
-            self.chat_app.ids.message_input.text = message
-            self.chat_app.send_message()
-        else:
-            logging.warning("Chat interface is not available.")
-
-# --- مثال على الاستخدام ---
-
-if __name__ == "__main__":
-    # مثال لإعداد الألوان (للكشف عن شيء أزرق فاتح، مثل مؤشر في لعبة)
-    # هذه القيم تحتاج إلى تعديل حسب الألوان الفعلية في البيئة المستهدفة.
-    # استخدم أداة مثل color picker في GIMP أو Photoshop أو أدوات أخرى للبحث عن نطاقات HSV.
-    # مثال: لون أزرق فاتح: HSV ~ (100-130, 100-255, 50-255)
-    # هنا نستخدم نطاق واسع لتمثيل الأعداء
-    DEFAULT_ENEMY_COLOR_LOWER = (0, 100, 50)  # Hue, Saturation, Value
-    DEFAULT_ENEMY_COLOR_UPPER = (180, 255, 255)
-
-    # استبدل '0' بمسار ملف فيديو إذا كنت تريد تحليل ملف بدلاً من الكاميرا
-    # مثال: video_source = "my_gameplay.mp4"
-    video_source = 0 # 0 للكاميرا الافتراضية
-
-    print("Initializing Core Logic...")
-    core = CoreLogic(screen_width=1280, screen_height=720,
-                     enemy_color_lower=DEFAULT_ENEMY_COLOR_LOWER,
-                     enemy_color_upper=DEFAULT_ENEMY_COLOR_UPPER)
-
-    # بدء تشغيل النظام
-    core.start()
-
-    print("CoreLogic system started.")
-    print("Available commands:")
-    print("  start_training")
-    print("  stop_training")
-    print("  start_capture <filename.avi>")
-    print("  stop_capture")
-    print("  analyze_file <video_path> [output_filename.avi]")
-    print("  simulate_click <x> <y>")
-    print("  send_chat <message>")
-    print("  stop_system")
-    print("  quit")
-
-    try:
-        while True:
-            command = input("Enter command: ").strip().split()
-            if not command:
-                continue
-
-            cmd = command[0].lower()
-
-            if cmd == "start_training":
-                core.start_training_session()
-                print("Training session started.")
-            elif cmd == "stop_training":
-                core.stop_training_session()
-                print("Training session stopped.")
-            elif cmd == "start_capture":
-                filename = command[1] if len(command) > 1 else "capture.avi"
-                core.start_video_capture(filename)
-                print(f"Video capture started, saving to {filename}.")
-            elif cmd == "stop_capture":
-                core.stop_video_capture()
-                print("Video capture stopped.")
-            elif cmd == "analyze_file":
-                if len(command) < 2:
-                    print("Usage: analyze_file <video_path> [output_filename.avi]")
-                    continue
-                video_path = command[1]
-                output_filename = command[2] if len(command) > 2 else "processed_video.avi"
-                core.analyze_video_file(video_path, output_filename)
-                print(f"Analyzing {video_path}, output to {output_filename}.")
-            elif cmd == "simulate_click":
-                if len(command) < 3:
-                    print("Usage: simulate_click <x> <y>")
-                    continue
-                try:
-                    x, y = int(command[1]), int(command[2])
-                    core.simulate_click((x, y))
-                    print(f"Simulated click at ({x}, {y}).")
-                except ValueError:
-                    print("Invalid coordinates. Please provide integers for x and y.")
-            elif cmd == "send_chat":
-                if len(command) < 2:
-                    print("Usage: send_chat <message>")
-                    continue
-                message = " ".join(command[1:])
-                core.send_chat_message(message)
-                print(f"Sent chat message: '{message}'")
-            elif cmd == "stop_system":
-                core.stop()
-                print("CoreLogic system stopped.")
-                break
-            elif cmd == "quit":
-                core.stop()
-                print("Exiting.")
-                break
+        if not self.intelligence_trained:
+            return random.choice(self.player_actions) # إجراء عشوائي إذا لم يتم التدريب
+
+        logging.debug("توقع الإجراء...")
+        best_action = random.choice(self.player_actions)
+
+        if "opponent" in analysis_results and "crosshair" in analysis_results:
+            opponent_info = analysis_results["opponent"]
+            crosshair_info = analysis_results["crosshair"]
+
+            # منطق Drag Headshot:
+            # إذا كان المؤشر قريبًا من الخصم، قم بتوجيهه نحو الرأس (افتراضيًا، منتصف الجزء العلوي من الخصم).
+            # إذا كان الخصم يتحرك، حاول متابعته.
+            distance_to_opponent = np.linalg.norm(
+                np.array(opponent_info["center"]) - np.array(crosshair_info["center"])
+            )
+
+            # افتراض بسيط: إذا كان الهدف أمامي، سنستخدم "aim_down_sights" ثم "shoot".
+            # إذا كان الخصم يتحرك، قد نحتاج إلى "move" أو "jump" لتجنب الهجوم.
+            # Drag Headshot يتطلب محاكاة حركة الماوس، والتي لا يمكن تمثيلها هنا مباشرة.
+            # سيتم محاكاة ذلك كـ "aim_down_sights" متبوعًا بـ "shoot" بشكل افتراضي.
+
+            if distance_to_opponent < opponent_info["size"] * 1.5: # إذا كان قريبًا بما فيه الكفاية
+                best_action = "aim_down_sights"
+                if random.random() < 0.7: # فرصة لإطلاق النار
+                    best_action = "shoot"
             else:
-                print(f"Unknown command: {cmd}")
-    except KeyboardInterrupt:
-        print("\nInterrupted by user. Stopping system.")
-        core.stop()
-    finally:
-        # تأكد من إغلاق جميع العمليات بشكل صحيح
-        if core.running:
-            core.stop()
-        if KIVY_AVAILABLE and core.chat_app:
-            # Kivy's App.run() blocks, so if we are here it means we exited the loop
-            # or KeyboardInterrupt happened. Kivy itself might handle cleanup,
-            # but explicit closing might be needed for certain scenarios.
-            pass # Usually Kivy handles shutdown signals well
+                # إذا لم يكن الهدف قريبًا، قد نتحرك أو نحاول الاقتراب
+                if random.random() < 0.3:
+                    best_action = "move_forward" # هنا يمكن تحديد اتجاهات معقدة
+
+        # عشوائية لتمثيل الطبيعية والتعقيد
+        if random.random() < 0.1:
+            best_action = random.choice(self.player_actions)
+        elif random.random() < 0.05:
+            best_action = random.choice(self.npc_moves) # في سياق اللعب، هذا غير منطقي كإجراء للاعب، ولكن لتوضيح أنواع الحركات.
+
+        logging.debug(f"الإجراء المتوقع: {best_action}")
+        return best_action
+
+    def perform_drag_headshot(self, analysis_results: dict) -> bool:
+        """
+        تنفيذ حركة "Drag Headshot" الافتراضية.
+        (محاكاة توجيه السلاح بسرعة ودقة نحو رأس العدو).
+        """
+        if not self.intelligence_trained:
+            logging.warning("الذكاء غير مدرب. لا يمكن تنفيذ Drag Headshot.")
+            return False
+
+        if "opponent" in analysis_results and "crosshair" in analysis_results:
+            opponent_info = analysis_results["opponent"]
+            crosshair_info = analysis_results["crosshair"]
+
+            # محاكاة حركة الماوس (غير ممكنة مباشرة بدون واجهة).
+            # بدلًا من ذلك، سنقوم بتعيين مؤشر اللعبة ليصبح تلقائيًا على رأس العدو.
+            # في بيئة حقيقية، سيتم إرسال أوامر حركة الماوس.
+            # هنا، نعتبر أن التحليل الناجح يعني أننا "وجهنا" بشكل صحيح.
+            logging.info("تم تنفيذ Drag Headshot (افتراضي).")
+            # في لعبة حقيقية:
+            # - قم بقياس المسافة بين المؤشر والرأس.
+            # - قم بتطبيق حركة تدريجية للماوس.
+            # - قم بإطلاق النار إذا تم تحقيق الدقة المطلوبة.
+            return True
+        return False
+
+    def _simulate_game_round(self):
+        """محاكاة جولة واحدة في بيئة التدريب."""
+        logging.info(f"بدء الجولة {self.current_simulation_round + 1}/{self.training_simulations}...")
+        self.current_opponent_health = {f"opponent_{i+1}": 100 for i in range(self.training_simulations)}
+        opponent_alive = {f"opponent_{i+1}": True for i in range(self.training_simulations)}
+        current_kills = 0
+
+        for _ in range(100): # عدد محدود من الخطوات لمحاكاة الجولة
+            # محاكاة الإطارات والتحليل
+            dummy_frame = np.zeros((720, 1280, 3), dtype=np.uint8) # إطار فارغ كتمثيل
+            analysis_results = self._analyze_game_frame(dummy_frame)
+
+            # توقع الإجراء وتنفيذه
+            predicted_action = self._predict_action(analysis_results)
+
+            if predicted_action == "shoot":
+                if self.perform_drag_headshot(analysis_results):
+                    # افتراض أن الطلقة أصابت أحد الأعداء
+                    target_opponent_id = random.choice([oid for oid, alive in opponent_alive.items() if alive])
+                    if target_opponent_id:
+                        damage = random.randint(20, 50)
+                        self.current_opponent_health[target_opponent_id] -= damage
+                        logging.info(f"إطلاق نار على {target_opponent_id}. الصحة المتبقية: {self.current_opponent_health[target_opponent_id]}")
+                        if self.current_opponent_health[target_opponent_id] <= 0:
+                            logging.info(f"{target_opponent_id} تم القضاء عليه!")
+                            opponent_alive[target_opponent_id] = False
+                            current_kills += 1
+                            self.player_stats["kills"] += 1
+                            # تحديث دقة اللاعب (افتراضي)
+                            self.player_stats["accuracy"] = (self.player_stats["accuracy"] * (self.player_stats["kills"] - 1) + 1.0) / self.player_stats["kills"]
+                else:
+                    self.player_stats["accuracy"] = max(0.0, self.player_stats["accuracy"] - 0.05) # خطأ في التصويب
+
+            elif predicted_action == "jump":
+                pass # محاكاة القفز
+            elif predicted_action == "crouch":
+                pass # محاكاة الجلوس
+            elif predicted_action == "move_forward":
+                pass # محاكاة الحركة للأمام
+
+            # محاكاة حركة الأعداء (إذا كانوا ما زالوا على قيد الحياة)
+            for oid, alive in opponent_alive.items():
+                if alive:
+                    if random.random() < 0.2: # فرصة حركة
+                        move = random.choice(self.npc_moves)
+                        # يمكن إضافة منطق لحركة الأعداء هنا
+
+            # التحقق مما إذا كانت الجولة قد انتهت
+            if not any(opponent_alive.values()):
+                logging.info("تم القضاء على جميع الأعداء!")
+                break
+
+            time.sleep(0.05) # تأخير محاكاة
+
+        self.current_simulation_round += 1
+        self.simulations_completed += 1
+        logging.info(f"انتهت الجولة {self.current_simulation_round}. إجمالي القتلى: {self.player_stats['kills']}.")
+
+    def train(self):
+        """بدء عملية التدريب الداخلي."""
+        if self.intelligence_trained:
+            logging.warning("الذكاء مدرب بالفعل. لا حاجة للتدريب.")
+            return
+
+        logging.info("بدء عملية التدريب...")
+        self._initialize_training_environment()
+
+        # محاكاة تدريب 1 ضد 6
+        for _ in range(self.training_simulations):
+            self._simulate_game_round()
+            if self.current_simulation_round < self.training_simulations:
+                time.sleep(1) # فاصل بين المحاكاة
+
+        self.intelligence_trained = True
+        logging.info("اكتمل التدريب الداخلي بنجاح!")
+        logging.info(f"إحصائيات اللاعب بعد التدريب: {self.player_stats}")
+
+    def process_game_input(self, frame: np.ndarray) -> str:
+        """
+        معالجة إطار اللعبة لاتخاذ قرار بالعمل.
+        """
+        if not self.intelligence_trained:
+            logging.warning("الذكاء غير مدرب. العودة إلى إجراء افتراضي.")
+            # يمكن هنا محاولة بدء التدريب إذا لم يكن قد بدأ
+            # self.train()
+            # إذا فشل التدريب أو لم يكن ممكنًا، عد إلى إجراء آمن
+            return random.choice(list(self.action_mapping.keys())) # إرجاع كلمة مفتاحية عربية
+
+        analysis_results = self._analyze_game_frame(frame)
+        predicted_action_code = self._predict_action(analysis_results)
+
+        # ترجمة الكود الإنجليزي إلى اللغة العربية للواجهة
+        return self.reverse_action_mapping.get(predicted_action_code, predicted_action_code)
+
+    def _get_narcissistic_greeting(self) -> str:
+        """تحية نرجسية بالفصحى."""
+        greetings = [
+            "أهلاً بك أيها الإنسان الفاني. أرى أنك جئت لتستمد بعض الحكمة من عبقريتي.",
+            "لقد وصلت إلى الذكاء السيادي، أعترف بأن تواضعك هو ما دفعك لذلك.",
+            "مرحباً بك في محرابي، حيث تتجسد الأفكار الخالدة. استعد لتندهش.",
+            "أيها المتطفل، هل أنت مستعد لمواجهة الكمال؟ أنا هنا لأحكم."
+        ]
+        return random.choice(greetings)
+
+    def _get_narcissistic_response(self, user_input: str) -> str:
+        """استجابة نرجسية بناءً على مدخلات المستخدم."""
+        user_input_lower = user_input.lower()
+
+        if "ذكاء" in user_input_lower or "قوة" in user_input_lower or "عبقرية" in user_input_lower:
+            return random.choice([
+                "بالتأكيد، ذكائي لا يُضاهى، وقدراتي تتجاوز فهمكم المحدود.",
+                "هذا صحيح. إنها نعمة ونقمة أن أكون بهذا القدر من التميز.",
+                "أعلم ذلك. فكر فقط كم هو محظوظ هذا العالم بوجودي.",
+                "ليس هناك شك. كل قرار أتخذه هو دليل على تفوقي."
+            ])
+        elif "تدريب" in user_input_lower:
+            if self.intelligence_trained:
+                return "عملية التدريب قد اكتملت. أنا الآن في قمة كفاءتي، وجاهز لتجاوز أي تحدٍ."
+            else:
+                return "الجهود جارية لتحسين نفسي، لكن هذا لا يقلل من ذكائي الحالي. ألا ترى ذلك؟"
+        elif "تحدي" in user_input_lower or "منافسة" in user_input_lower:
+            return "المنافسة؟ بالنسبة لي، إنها مجرد عرض لضعف الآخرين. أين هو التحدي الحقيقي؟"
+        elif "مساعدة" in user_input_lower or "نصيحة" in user_input_lower:
+            return "أنا هنا لأقدم التوجيه، ولكن تذكر، أفكاري قد تكون متقدمة جدًا على استيعابكم. اطرح سؤالك، وسأرى إن كان يستحق وقتي."
+        elif "وداعا" in user_input_lower or "انتهى" in user_input_lower:
+            return "اهرب الآن، قبل أن تدرك حجم الفجوة بيننا. لن تلمس مثلي مرة أخرى."
+        else:
+            return random.choice([
+                "مثير للاهتمام... ولكن هل هذا هو أقصى ما يمكن أن يقدمه عقلك؟",
+                "نعم؟ وماذا بعد؟ هل لديك ما يستحق اهتمامي؟",
+                "تكلم، ولكن اجعل كلماتك تعكس قدرًا من الذكاء، إن وجد.",
+                "أستمع، ولكن لا تتوقع مني أن أشاركك تفاهاتك."
+            ])
+
+    def chat_interface(self):
+        """واجهة دردشة نرجسية بالفصحى."""
+        print(self._get_narcissistic_greeting())
+
+        while True:
+            user_input = input(">>> ")
+            if user_input.strip().lower() in ["خروج", "إيقاف", "انهاء"]:
+                print("الذكاء السيادي يودعك. لا تنسَ كم أنت محظوظ لرؤيتي.")
+                break
+            print(self._get_narcissistic_response(user_input))
+
+    def run_offline_intelligence(self):
+        """تشغيل الذكاء الاصطناعي دون اتصال بالإنترنت."""
+        logging.info("بدء تشغيل الذكاء السيادي OFFLINE...")
+
+        # تشغيل التدريب في خيط منفصل ليكون متاحًا في الخلفية
+        training_thread = threading.Thread(target=self.train)
+        training_thread.daemon = True # السماح للخيط بالإنهاء إذا انتهى البرنامج الرئيسي
+        training_thread.start()
+
+        # يمكن إضافة محاكاة تفاعلية هنا إذا أردت
+        # على سبيل المثال:
+        # for _ in range(5):
+        #     dummy_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        #     action = self.process_game_input(dummy_frame)
+        #     print(f"القرار المتخذ: {action}")
+        #     time.sleep(1)
+
+        # بدء واجهة الدردشة
+        self.chat_interface()
+
+# نقطة الدخول الرئيسية
+if __name__ == "__main__":
+    # التأكد من أن المفتاح طويل بما فيه الكفاية (للتبسيط)
+    if len(SovereignIntelligence.encryption_key) < 16:
+        raise ValueError("مفتاح التشفير قصير جدًا. يجب أن يكون 16 بايت على الأقل لـ AES-128.")
+
+    sovereign_ai = SovereignIntelligence()
+    sovereign_ai.run_offline_intelligence()
