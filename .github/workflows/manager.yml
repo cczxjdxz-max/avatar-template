@@ -1,71 +1,54 @@
-name: 1. The Manager (MIND) - Cross-Repo Command
-
-on:
-  # إضافة زر التشغيل اليدوي
-  workflow_dispatch:
-  # (اختياري) يمكنك أيضاً تركه يعمل عند الدفع للكود
-  push:
-    branches: [ main ]
-
-jobs:
-  architect_and_command:
-    runs-on: ubuntu-latest
-    steps:
       - name: "Generate Execution Plan (Script)"
         id: generate_script
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
         run: |
-          # نستخدم علامة 'EOF' لحماية الكود من أخطاء الـ Bash Syntax
           python3 << 'EOF'
           import os, subprocess, json
 
           api_key = os.getenv("GOOGLE_API_KEY")
           download_url = os.getenv("GAME_DOWNLOAD_URL")
           
-          # إعداد البيانات لإرسالها في الـ curl (البرومبت)
-          prompt_text = f"You are a world-class reverse engineering expert. Generate a single, self-contained Python script to be executed in a GitHub Actions environment. Objective: Extract core game data from an APK at {download_url}. The script must install unzip/wget, download the apk, try extracting it, and filter (json, xml, lua, weapon, map) to CORE_DATA. Generate ONLY the Python code inside ```python ... ```."
+          # برومبت مُحسن يركز على استخدام مكتبات بايثون لتجنب أخطاء الصلاحيات
+          prompt_text = f"""
+          You are a world-class reverse engineering expert. Generate a single Python script for GitHub Actions.
+          Objective: Extract core game data from {download_url}.
+          
+          STRICT RULES:
+          1. DO NOT use 'apt-get' or 'sudo'. 
+          2. Use 'urllib.request' or 'requests' to download the APK.
+          3. Use 'zipfile' module to extract the APK.
+          4. Search for (.json, .xml, .lua) and keywords (weapon, map, control, aim) and copy them to 'CORE_DATA/'.
+          5. Ensure the script is self-contained and handles errors gracefully.
+          
+          Generate ONLY the Python code inside ```python ... ```.
+          """
           
           payload = {
-              "contents": [{
-                  "parts": [{
-                      "text": prompt_text
-                  }]
-              }]
+              "contents": [{"parts": [{"text": prompt_text}]}]
           }
 
-          # أمر الـ curl الذي طلبته بالضبط باستخدام v1beta و gemini-2.5-flash-lite
           curl_cmd = [
-              "curl",
-              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+              "curl", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
               "-H", "Content-Type: application/json",
               "-H", f"x-goog-api-key: {api_key}",
-              "-X", "POST",
-              "-d", json.dumps(payload)
+              "-X", "POST", "-d", json.dumps(payload)
           ]
 
           try:
-              # تنفيذ الأمر واستلام النتيجة
               result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True)
               response = json.loads(result.stdout)
               content = response["candidates"][0]["content"]["parts"][0]["text"]
-              
-              # استخراج كود البايثون فقط من رد الذكاء الاصطناعي
-              if "```python" in content:
-                  script_code = content.split("```python")[1].split("```")[0].strip()
-              else:
-                  script_code = content.strip()
-          except Exception as e:
-              # سكربت احتياطي بسيط في حال فشل الـ API
-              script_code = f"import os\nprint('Fallback mode')\nos.system('wget {download_url} -O game.apk')"
+              script_code = content.split("```python")[1].split("```")[0].strip() if "```python" in content else content.strip()
+          except:
+              script_code = "import os\nprint('Safety Fallback')\nos.makedirs('CORE_DATA', exist_ok=True)"
 
-          # حفظ السكربت في بيئة GitHub Actions بشكل آمن
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
           EOF
 
-      - name: "Issue Cross-Repository Command to The Executor"
+      - name: "Issue Cross-Repository Command"
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PAT }}
