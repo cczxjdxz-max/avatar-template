@@ -1,73 +1,125 @@
-name: 1. The Sovereign Absolute (All-in-One Fixer)
+name: 1. The Manager (MIND) - File-less Edition
+
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types: [sequential_heal_request]
 
 jobs:
-  sovereign_control:
+  architect_the_plan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: "Supreme Reasoning & Self-Correction"
+      - name: "Invoke Gemini to Design the Extraction Script (In-line)"
+        id: gemini_design
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          REPORTS: ${{ github.event.client_payload.task_reports || 'Master Boot Initiated' }}
+          GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
         run: |
-          python3 << 'EOF'
-          import os, json, requests, re
+          # ----------------- BEGIN IN-LINE PYTHON SCRIPT -----------------
+          python3 -c '
+          import os
+          import subprocess
+          import json
 
-          api_key = os.getenv('GOOGLE_API_KEY')
-          reports = os.getenv('REPORTS')
-          
-          # البرومبت الذي يجمع القوة النرجسية والدقة التقنية
+          # --- الإعدادات الأساسية ---
+          api_key = os.getenv("GOOGLE_API_KEY")
+          download_url = os.getenv("GAME_DOWNLOAD_URL")
+          model = "gemini-2.5-flash-lite"
+
+          # --- البرومبت الهندسي الدقيق ---
           prompt = f"""
-          أنت 'المهندس السيادي المطلق'. هدفك الوحيد هو نجاح بناء تطبيق 'كاجيتان' الاحترافي.
-          تقرير الحالة من الميدان: {reports}
-          
-          المطلوب منك هو هندسة الحل الكامل:
-          1. main.py: واجهة سوداء وذهبية ملحمية، محاكاة 5 تريليون دورة، نظام تصويب OpenCV 'كل طلقة أحمر'.
-          2. buildozer.spec: إعدادات NDK 25b و API 33 مع ضمان شمولية المكتبات.
-          3. executor.yml: ملف Workflow كامل للمنفذ يصحح أخطاء النظام (مثل تقييد Cython < 3.0 لحل مشكلة 'long').
-          
-          يجب أن يكون ردك بصيغة JSON فقط بهذا الهيكل:
-          {{ "workflow": "...", "spec": "...", "main_py": "..." }}
+          You are a world-class reverse engineering expert specializing in Unity-based mobile games.
+          Your mission is to generate a single, self-contained Python script. This script will be executed in a GitHub Actions Ubuntu environment to perform a deep data mining operation on a game APK.
+
+          **Objective:**
+          Extract core game data (controls, aim mechanics, weapons, walls, maps, character skeletons) and package it.
+
+          **The Python script you generate MUST perform the following steps:**
+
+          1.  **Environment Setup:**
+              - Print every command being executed for clear logging.
+              - Install necessary Ubuntu packages: `unzip`, `wget`.
+
+          2.  **Download Game File:**
+              - Download the APK from the URL: `{download_url}`. Name the file `game.apk`.
+
+          3.  **Systematic Extraction Attempts (Crucial):**
+              - **Method 1 (ZIP):** Try to unzip `game.apk` into a directory named `extracted_zip`. Use `|| true` to prevent workflow failure if it is not a valid zip.
+              - **Method 2 (AssetStudio/AssetRipper):**
+                  - Download the latest Linux console version of AssetRipper from its GitHub releases.
+                  - Extract the tool.
+                  - Execute it on `game.apk` to rip all assets into a directory named `extracted_assetripper`. Use `|| true`.
+
+          4.  **Deep Data Filtering:**
+              - Create a final directory named `CORE_DATA`.
+              - Recursively search through *all* extraction directories (`extracted_zip`, `extracted_assetripper`).
+              - Copy any file that meets the following criteria into `CORE_DATA`:
+                  - File extension is `.json`, `.xml`, or `.lua`.
+                  - Filename contains (case-insensitive) any of these keywords: `weapon`, `config`, `settings`, `player`, `character`, `skeleton`, `aim`, `control`, `map`, `gloo`, `wall`.
+
+          5.  **Final Output:**
+              - The script should not have any external dependencies besides standard Python libraries.
+              - The entire logic must be in one single Python script.
+
+          Generate ONLY the Python code for this script, enclosed in ```python ... ```.
           """
-          
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-          
-          # نظام النجاة الذاتي (قالب كاجيتان الذهبي)
-          def emergency_payload():
-              m = "from kivy.app import App\nfrom kivy.uix.label import Label\nfrom kivy.core.window import Window\nclass Kajitan(App):\n    def build(self):\n        Window.clearcolor = (0,0,0,1)\n        return Label(text='[color=FFD700][b]KAJITAN SOVEREIGN[/b][/color]', markup=True, font_size='40sp')\nKajitan().run()"
-              s = "[app]\ntitle=Kajitan\npackage.name=kj.ai\nsource.dir=.\nversion=1.0\nrequirements=python3,kivy,opencv,numpy,android\nandroid.archs=arm64-v8a\nandroid.api=33\nandroid.ndk=25b"
-              w = "name: 2. Combat Executor\non:\n  repository_dispatch:\n    types: [execute_build]\njobs:\n  execution:\n    runs-on: ubuntu-22.04\n    steps:\n      - uses: actions/checkout@v4\n      - name: Build System Setup\n        run: |\n          sudo apt update && sudo apt install -y python3-pip zip unzip build-essential\n          pip3 install --user --upgrade \"Cython<3.0\" buildozer virtualenv\n      - name: Build APK\n        run: |\n          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip\n          unzip -q android-ndk-r25b-linux.zip\n          export APP_ANDROID_NDK_PATH=$(pwd)/android-ndk-r25b\n          yes | buildozer android debug\n      - uses: actions/upload-artifact@v4\n        with:\n          name: Final-Kajitan-APK\n          path: bin/*.apk"
-              return w, s, m
 
+          # --- بناء أمر curl المطابق للمواصفات ---
+          url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+          headers = {
+              "Content-Type": "application/json",
+              "x-goog-api-key": api_key
+          }
+          data = {
+              "contents": [{"parts": [{"text": prompt}]}]
+          }
+          json_data_string = json.dumps(data)
+          curl_command = [
+              "curl", "-s", "-X", "POST",
+              "-H", f"Content-Type: {headers['Content-Type']}",
+              "-H", f"x-goog-api-key: {headers['x-goog-api-key']}",
+              url,
+              "-d", json_data_string
+          ]
+
+          # --- التنفيذ ومعالجة الاستجابة ---
           try:
-              res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=45).json()
-              text = res['candidates'][0]['content']['parts'][0]['text']
-              data = json.loads(re.search(r'\{.*\}', text, re.DOTALL).group())
-              w, s, m = data['workflow'], data['spec'], data['main_py']
-          except:
-              print("AI Quota Exceeded. Activating Hardcoded Sovereign Core...")
-              w, s, m = emergency_payload()
+              print(f"Manager is invoking {model} via curl...")
+              result = subprocess.run(curl_command, capture_output=True, text=True, check=True, timeout=90)
+              response_json = json.loads(result.stdout)
+              content = response_json["candidates"][0]["content"]["parts"][0]["text"]
+              
+              if "```python" in content:
+                  script_code = content.split("```python")[1].split("```").strip()
+              else:
+                  script_code = content.strip()
 
-          with open('main.py', 'w') as f: f.write(m)
-          with open('buildozer.spec', 'w') as f: f.write(s)
-          with open('executor.yml', 'w') as f: f.write(w)
-          EOF
+              with open("miner_script.py", "w") as f:
+                  f.write(script_code)
+              
+              print("Generated miner_script.py successfully.")
 
-      - name: "Universal Injection (Correcting Every CM)"
-        env:
-          PAT_TOKEN: ${{ secrets.PAT }}
-        run: |
-          git config --global user.name "Sovereign-Absolute"
-          git clone "https://${PAT_TOKEN}@github.com/cczxjdxz-max/Full.git" temp_full
-          cp main.py temp_full/main.py
-          cp buildozer.spec temp_full/buildozer.spec
-          mkdir -p temp_full/.github/workflows
-          cp executor.yml temp_full/.github/workflows/executor.yml
-          cd temp_full
-          git add . && git commit -m "Sovereign: Absolute Correction Applied" && git push origin main
-          curl -X POST -H "Authorization: token ${PAT_TOKEN}" -d '{"event_type": "execute_build"}' "https://api.github.com/repos/cczxjdxz-max/Full/dispatches"
+          except Exception as e:
+              print(f"curl/Gemini call failed: {e}. Activating emergency fallback script.")
+              fallback_script = """
+import os, subprocess
+print("EMERGENCY FALLBACK SCRIPT ACTIVATED")
+url = os.getenv("GAME_DOWNLOAD_URL")
+subprocess.run(f"wget {url} -O game.apk", shell=True)
+subprocess.run("mkdir -p CORE_DATA && touch CORE_DATA/fallback_activated.txt", shell=True)
+"""
+              with open("miner_script.py", "w") as f:
+                  f.write(fallback_script)
+          '
+          # ------------------ END IN-LINE PYTHON SCRIPT ------------------
+
+      - name: "Archive the generated plan (script) for the Executor"
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-plan
+          path: miner_script.py
+
+      - name: "Order the Executor to proceed"
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT }}
+          event-type: execute_extraction_plan
+          client-payload: '{"message": "The plan is ready. Proceed with extraction."}'
