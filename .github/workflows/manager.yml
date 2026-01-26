@@ -1,64 +1,50 @@
-name: 1. The Manager (MIND) - Cross-Repo Command
-
-on:
-  workflow_dispatch:
-
-jobs:
-  architect_and_command:
-    runs-on: ubuntu-latest
-    steps:
       - name: "Generate Execution Plan (Script)"
         id: generate_script
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
         run: |
-          # ----------------- BEGIN IN-LINE PYTHON SCRIPT -----------------
-          python3 -c '
+          python3 << 'EOF'
           import os, subprocess, json
+
           api_key = os.getenv("GOOGLE_API_KEY")
           download_url = os.getenv("GAME_DOWNLOAD_URL")
-          model = "gemini-2.5-flash-lite"
-          prompt = f"""
-          You are a world-class reverse engineering expert. Your mission is to generate a single, self-contained Python script to be executed in a GitHub Actions environment.
-          **Objective:** Extract core game data (controls, aim, weapons, walls, maps, character skeletons) from an APK.
-          **The Python script MUST perform these steps:**
-          1.  **Setup:** Install `unzip` and `wget`.
-          2.  **Download:** Download from `{download_url}` to `game.apk`.
-          3.  **Extraction Attempts:**
-              - Try unzipping `game.apk` to `extracted_zip`.
-              - Download and use AssetRipper console on `game.apk` to `extracted_assetripper`.
-              - All attempts must use `|| true` to prevent failure.
-          4.  **Filtering:** Create a `CORE_DATA` directory. Recursively search all extracted folders for files with extensions `.json`, `.xml`, `.lua` or filenames containing keywords like `weapon`, `config`, `skeleton`, `aim`, `control`, `map`, `gloo`. Copy matches to `CORE_DATA`.
-          Generate ONLY the Python code for this script, enclosed in ```python ... ```.
-          """
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-          headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
-          data = {"contents": [{"parts": [{"text": prompt}]}]}
-          json_data_string = json.dumps(data)
-          curl_command = ["curl", "-s", "-X", "POST", "-H", f"Content-Type: {headers['Content-Type']}", "-H", f"x-goog-api-key: {headers['x-goog-api-key']}", url, "-d", json_data_string]
-          try:
-              result = subprocess.run(curl_command, capture_output=True, text=True, check=True, timeout=90)
-              response_json = json.loads(result.stdout)
-              content = response_json["candidates"][0]["content"]["parts"][0]["text"]
-              script_code = content.split("```python").split("```")[0].strip() if "```python" in content else content.strip()
-          except Exception as e:
-              print(f"Gemini call failed: {e}. Activating emergency fallback.")
-              script_code = "import os, subprocess\nprint(\'EMERGENCY FALLBACK SCRIPT\')\nurl = os.getenv(\'GAME_DOWNLOAD_URL\')\nsubprocess.run(f\'wget {url} -O game.apk\', shell=True)\nsubprocess.run(\'mkdir -p CORE_DATA && touch CORE_DATA/fallback.txt\', shell=True)"
           
-          # حفظ السكربت كمتغير بيئة ليتم استخدامه في الخطوة التالية
-          print(f"PLAN_SCRIPT={json.dumps(script_code)}", file=os.environ["GITHUB_ENV"])
-          '
-          # ------------------ END IN-LINE PYTHON SCRIPT ------------------
+          # إعداد البيانات لإرسالها في الـ curl
+          prompt_text = f"You are a world-class reverse engineering expert. Generate a single, self-contained Python script to be executed in a GitHub Actions environment. Objective: Extract core game data from an APK at {download_url}. The script must install unzip/wget, download the apk, try extracting it, and filter (json, xml, lua, weapon, map) to CORE_DATA. Generate ONLY the Python code inside ```python ... ```."
+          
+          payload = {
+              "contents": [{
+                  "parts": [{
+                      "text": prompt_text
+                  }]
+              }]
+          }
 
-      - name: "Issue Cross-Repository Command to The Executor"
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          # مفتاح الوصول الشخصي الذي لديه صلاحية على كلا المستودعين
-          token: ${{ secrets.PAT }}
-          # تحديد المستودع الهدف بدقة
-          repository: cczxjdxz-max/Full
-          # نوع الحدث الذي سيستمع إليه المنفذ
-          event-type: execute_extraction_plan
-          # إرسال الخطة (السكربت) كجزء من الحمولة
-          client-payload: '{"plan": ${{ env.PLAN_SCRIPT }} }'
+          # أمر الـ curl الذي طلبته بالضبط
+          curl_cmd = [
+              "curl",
+              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+              "-H", "Content-Type: application/json",
+              "-H", f"x-goog-api-key: {api_key}",
+              "-X", "POST",
+              "-d", json.dumps(payload)
+          ]
+
+          try:
+              result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True)
+              response = json.loads(result.stdout)
+              content = response["candidates"][0]["content"]["parts"][0]["text"]
+              
+              # استخراج الكود البرمجي فقط
+              if "```python" in content:
+                  script_code = content.split("```python")[1].split("```")[0].strip()
+              else:
+                  script_code = content.strip()
+          except Exception as e:
+              script_code = f"import os\nprint('Fallback mode')\nos.system('wget {download_url} -O game.apk')"
+
+          # حفظ السكربت كمتغير بيئة آمن للنقل
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
+          EOF
