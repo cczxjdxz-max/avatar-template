@@ -1,3 +1,12 @@
+name: 1. The Manager (MIND) - Cross-Repo Command
+
+on:
+  workflow_dispatch:
+
+jobs:
+  architect_and_command:
+    runs-on: ubuntu-latest
+    steps:
       - name: "Generate Execution Plan (Script)"
         id: generate_script
         env:
@@ -10,7 +19,7 @@
           api_key = os.getenv("GOOGLE_API_KEY")
           download_url = os.getenv("GAME_DOWNLOAD_URL")
           
-          # برومبت مُحسن يركز على استخدام مكتبات بايثون لتجنب أخطاء الصلاحيات
+          # البرومبت المقيّد والذكي الذي يجبر Gemini على استخدام أدوات بايثون النقية
           prompt_text = f"""
           You are a world-class reverse engineering expert. Generate a single Python script for GitHub Actions.
           Objective: Extract core game data from {download_url}.
@@ -37,18 +46,19 @@
           ]
 
           try:
-              result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True)
+              result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True, timeout=90)
               response = json.loads(result.stdout)
               content = response["candidates"][0]["content"]["parts"][0]["text"]
-              script_code = content.split("```python")[1].split("```")[0].strip() if "```python" in content else content.strip()
-          except:
-              script_code = "import os\nprint('Safety Fallback')\nos.makedirs('CORE_DATA', exist_ok=True)"
+              script_code = content.split("```python").split("```")[0].strip() if "```python" in content else content.strip()
+          except Exception as e:
+              print(f"Gemini call failed: {e}. Activating safety fallback.")
+              script_code = "import os, urllib.request\nprint('Safety Fallback: Downloading only')\nurllib.request.urlretrieve(os.getenv('GAME_DOWNLOAD_URL'), 'game.apk')\nos.makedirs('CORE_DATA', exist_ok=True)"
 
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
           EOF
 
-      - name: "Issue Cross-Repository Command"
+      - name: "Issue Cross-Repository Command to The Executor"
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PAT }}
