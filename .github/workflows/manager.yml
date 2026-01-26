@@ -1,67 +1,59 @@
-name: 1. The Manager (MIND) - Cross-Repo Command
+name: 1. The Manager (MIND) - Evolutionary
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # للبدء الأول
+  repository_dispatch:
+    types: [analyze_failure] # عند استقبال تقرير فشل
 
 jobs:
-  architect_and_command:
+  evolve_and_command:
     runs-on: ubuntu-latest
     steps:
-      - name: "Generate Execution Plan (Script)"
-        id: generate_script
+      - name: "Analyze Situation and Design Plan"
+        id: design
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
+          # استقبال سجل الفشل من المنفذ
+          FAILURE_LOG: ${{ github.event.client_payload.execution_log || 'This is the first mission. Objective: Download and extract.' }}
         run: |
           python3 << 'EOF'
           import os, subprocess, json
-
+          
           api_key = os.getenv("GOOGLE_API_KEY")
           download_url = os.getenv("GAME_DOWNLOAD_URL")
-          
-          # البرومبت المقيّد والذكي الذي يجبر Gemini على استخدام أدوات بايثون النقية
+          failure_log = os.getenv("FAILURE_LOG")
+
+          # --- برومبت تطوري يحلل الأخطاء ---
           prompt_text = f"""
-          You are a world-class reverse engineering expert. Generate a single Python script for GitHub Actions.
-          Objective: Extract core game data from {download_url}.
-          
-          STRICT RULES:
-          1. DO NOT use 'apt-get' or 'sudo'. 
-          2. Use 'urllib.request' or 'requests' to download the APK.
-          3. Use 'zipfile' module to extract the APK.
-          4. Search for (.json, .xml, .lua) and keywords (weapon, map, control, aim) and copy them to 'CORE_DATA/'.
-          5. Ensure the script is self-contained and handles errors gracefully.
-          
-          Generate ONLY the Python code inside ```python ... ```.
+          You are the Manager of a stateful, multi-stage reverse engineering operation.
+          Your Executor has reported a failure. Your task is to generate a *new Python script* to solve it.
+
+          **FAILURE ANALYSIS REPORT FROM EXECUTOR:**
+          ```
+          {failure_log}
+          ```
+
+          **YOUR STRATEGIC TASK:**
+          Based *only* on the report, determine the next logical step.
+          - If the report says 'first mission', generate a script to download the file from {download_url} if it does not exist.
+          - If the report shows a download success but extraction failure, generate a script that attempts a *new* extraction method (e.g., if 'zipfile' failed, try command-line 'unzip').
+          - The script MUST be aware of the state. It should check for existing files (like 'game.apk') before re-downloading.
+          - The script MUST create 'CORE_DATA' and copy any found assets into it.
+          - Generate ONLY the Python code.
           """
           
-          payload = {
-              "contents": [{"parts": [{"text": prompt_text}]}]
-          }
+          # ... (نفس كود استدعاء Gemini باستخدام curl لتوليد 'script_code') ...
 
-          curl_cmd = [
-              "curl", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-              "-H", "Content-Type: application/json",
-              "-H", f"x-goog-api-key: {api_key}",
-              "-X", "POST", "-d", json.dumps(payload)
-          ]
-
-          try:
-              result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True, timeout=90)
-              response = json.loads(result.stdout)
-              content = response["candidates"][0]["content"]["parts"][0]["text"]
-              script_code = content.split("```python").split("```")[0].strip() if "```python" in content else content.strip()
-          except Exception as e:
-              print(f"Gemini call failed: {e}. Activating safety fallback.")
-              script_code = "import os, urllib.request\nprint('Safety Fallback: Downloading only')\nurllib.request.urlretrieve(os.getenv('GAME_DOWNLOAD_URL'), 'game.apk')\nos.makedirs('CORE_DATA', exist_ok=True)"
-
+          # حفظ الخطة لإرسالها إلى المنفذ
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
           EOF
 
-      - name: "Issue Cross-Repository Command to The Executor"
+      - name: "Issue Evolved Command to The Executor"
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PAT }}
           repository: cczxjdxz-max/Full
-          event-type: execute_extraction_plan
-          client-payload: '{"plan": ${{ env.PLAN_SCRIPT }} }'
+          event-type: evolve_and_execute
+          client-payload: '{"script": ${{ env.PLAN_SCRIPT }} }'
