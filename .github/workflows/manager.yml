@@ -1,9 +1,12 @@
 name: 1. The Manager (MIND) - Surgical v4
 
 on:
-  workflow_dispatch:
+  # --- تمت إضافة هذا الزر ---
+  workflow_dispatch: # يسمح بالتشغيل اليدوي من تبويب Actions
+
+  # --- المشغل الحالي يبقى كما هو ---
   repository_dispatch:
-    types: [analyze_failure]
+    types: [analyze_failure] # عند استقبال تقرير فشل
 
 jobs:
   evolve_and_command:
@@ -31,7 +34,7 @@ jobs:
           else:
               failure_log = "This is the first mission. Objective: Download and extract."
 
-          # --- البرومبت الجراحي ---
+          # البرومبت الجراحي
           prompt_text = f"""
           You are a surgical reverse engineering expert. You will receive a highly focused error report.
           Your task is to generate a Python script that specifically solves THIS error.
@@ -50,8 +53,6 @@ jobs:
           - Generate ONLY the Python code.
           """
           
-          # ... (نفس كود استدعاء Gemini وحفظ السكربت) ...
-          # (لا تغيير هنا، فقط في البرومبت)
           script_code = "# Fallback script"
           try:
               payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
