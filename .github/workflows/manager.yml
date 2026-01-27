@@ -1,4 +1,4 @@
-name: 1. The Manager (MIND) - Surgical v8
+name: 1. The Manager (MIND) - Force Strike v9
 
 on:
   workflow_dispatch:
@@ -9,57 +9,38 @@ jobs:
   design_and_command:
     runs-on: ubuntu-latest
     steps:
-      - name: "Install Dependencies"
-        run: pip install requests
-
-      - name: "Design Matrix Extraction Plan"
+      - name: "Generate Surgical Script (Bypassing AI Quota)"
+        id: bypass
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
         run: |
           python3 << 'EOF'
-          import os, requests, json, sys
+          import base64, os, json
 
-          api_key = os.getenv("GOOGLE_API_KEY")
-          download_url = os.getenv("GAME_DOWNLOAD_URL")
-          
-          # برومبت دقيق لاستخراج بيانات محاكاة الذكاء الاصطناعي
-          prompt_text = (
-              f"Generate a self-contained Python 3 script. Target: {download_url}. "
-              "The script must: 1. Download the APK. 2. Extract ONLY 'Assembly-CSharp.dll', "
-              "'global-metadata.dat', and all '.json', '.bytes' files from 'assets/bin/Data/'. "
-              "3. Place them in a folder named 'CORE_DATA'. "
-              "Generate ONLY the code inside ```python ... ``` blocks."
-          )
-          
-          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
-          headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
-          payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-
-          try:
-              response = requests.post(url, headers=headers, json=payload)
-              data = response.json()
+          # هذا السكربت تم تجهيزه مسبقاً بناءً على خبرتنا في هيكل اللعبة
+          # سيقوم بالتحميل والاستخراج بدقة دون الحاجة لـ Gemini
+          surgical_script = f"""
+          import os, subprocess, zipfile
+          def run_mission():
+              target_url = "{os.getenv('GAME_DOWNLOAD_URL')}"
+              os.makedirs('CORE_DATA', exist_ok=True)
+              print(f'Downloading APK from {{target_url}}...')
+              subprocess.run(['wget', '-q', target_url, '-O', 'game.apk'], check=True)
               
-              if 'candidates' in data:
-                  content = data['candidates'][0]['content']['parts'][0]['text']
-                  script_code = content.split("```python")[1].split("```")[0].strip()
-                  
-                  # كتابة السكربت في ملف مؤقت لمنع مشاكل الأسطر في البيئة
-                  with open("generated_plan.py", "w") as f:
-                      f.write(script_code)
-                  
-                  # تشفير السكربت لضمان نقله بأمان عبر الـ Dispatch
-                  import base64
-                  encoded_script = base64.b64encode(script_code.encode()).decode()
-                  
-                  with open(os.environ['GITHUB_ENV'], 'a') as f:
-                      f.write(f"ENCODED_PLAN={encoded_script}\n")
-              else:
-                  print(f"API Error: {json.dumps(data, indent=2)}")
-                  sys.exit(1)
-          except Exception as e:
-              print(f"Failed to connect: {e}")
-              sys.exit(1)
+              with zipfile.ZipFile('game.apk', 'r') as z:
+                  for file in z.namelist():
+                      # استهداف ملفات البرمجة والبيانات الرقمية حصراً
+                      if any(x in file for x in ['Assembly-CSharp.dll', 'global-metadata.dat', '.json', '.bytes', '.lua']):
+                          if 'assets/bin/Data/' in file or 'Managed' in file:
+                              z.extract(file, 'CORE_DATA')
+                              print(f'Captured: {{file}}')
+          if __name__ == "__main__":
+              run_mission()
+          """
+          
+          encoded_plan = base64.b64encode(surgical_script.encode()).decode()
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f"ENCODED_PLAN={encoded_plan}\n")
           EOF
 
       - name: "Issue Dispatch to Executor"
