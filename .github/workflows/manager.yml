@@ -1,4 +1,4 @@
-name: 1. The Manager (MIND) - Data Matrix Extractor
+name: 1. The Manager (MIND) - AI Matrix Extractor
 
 on:
   workflow_dispatch:
@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Design Matrix Extraction Plan"
-        id: design
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
@@ -22,31 +21,25 @@ jobs:
           download_url = os.getenv("GAME_DOWNLOAD_URL")
           
           prompt_text = f"""
-          You are a Data Scientist and Reverse Engineer. 
-          Target: Free Fire APK ({download_url}).
-          Objective: Extract raw data for a non-graphical AI simulation (3 trillion iterations).
+          You are a Data Scientist. Target: {download_url}.
+          Objective: Extract NUMERIC DATA for AI simulation.
           
-          FOCUS ON:
-          1. CONFIGS: Extract all '.json', '.lua', '.xml', '.csv', and '.bytes' files.
-          2. COORDINATES: Look for any file containing 'map_config', 'spawn_points', 'bounds'.
-          3. PHYSICS & AI: Extract 'Assembly-CSharp.dll' to get the math for:
-             - Bullet drop/velocity formulas.
-             - Movement speed constants.
-             - Hitbox dimensions (vectors).
-          4. METADATA: 'global-metadata.dat' is mandatory.
-
-          Generate ONLY the Python script to extract these specific data-only files to 'CORE_DATA/'.
+          STRICT SCRIPT REQUIREMENTS:
+          1. Check if the APK download is successful and size > 100MB. If not, EXIT WITH ERROR.
+          2. Use 'zipfile' to find: 'Assembly-CSharp.dll', 'global-metadata.dat', and all '.json', '.bytes' files.
+          3. Focus on 'assets/bin/Data/'.
+          4. If CORE_DATA is empty at the end, the script must raise an Exception.
+          5. DO NOT use sudo/apt.
+          
+          Generate ONLY the Python script.
           """
           
-          try:
-              payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-              url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
-              curl_cmd = ["curl", "-s", url, "-H", "Content-Type: application/json", "-H", f"x-goog-api-key: {api_key}", "-X", "POST", "-d", json.dumps(payload)]
-              result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True)
-              response = json.loads(result.stdout)
-              script_code = response["candidates"][0]["content"]["parts"][0]["text"].split("```python")[1].split("```")[0].strip()
-          except:
-              script_code = "import os\nos.makedirs('CORE_DATA', exist_ok=True)"
+          payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+          
+          result = subprocess.run(["curl", "-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", json.dumps(payload), url], capture_output=True, text=True)
+          response = json.loads(result.stdout)
+          script_code = response["candidates"][0]["content"]["parts"][0]["text"].split("```python")[1].split("```")[0].strip()
 
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
