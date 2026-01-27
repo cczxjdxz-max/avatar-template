@@ -1,31 +1,53 @@
-      - name: "Design Headshot Arena Plan"
+name: 1. The Manager (MIND) - Headshot Arena Architect
+
+on:
+  workflow_dispatch:
+
+jobs:
+  design_arena:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Design AI Headshot Simulation"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           python3 << 'EOF'
           import os, requests, json, base64
 
-          prompt_text = """
-          Generate a High-Speed Python Simulation for Reinforcement Learning:
-          1. SCENARIO: 1 Main Agent vs 6 Enemy Agents.
-          2. GOAL: Main Agent must target ONLY the 'Head' vector (y-axis offset).
-          3. LOGIC: 
-             - Use Vectorized Math (NumPy style) to simulate 4 trillion shots.
-             - Main Agent has 'Aim-Lock' logic on Head coordinates.
-             - Enemies have standard movement patterns.
-          4. RULES: Infinite Ammo and Infinite Gloo Walls for the Main Agent.
-          5. STATS: Track Headshot Ratio, Wins, and Deaths for the Main Agent.
-          6. OUTPUT: Write a detailed summary to 'README.md' and save model weights to 'headshot_model.dat'.
-          """
+          # صياغة البرومبت لبناء المحاكي الرقمي
+          prompt_text = (
+              "Generate a standalone Python 3 script for a non-graphical AI simulation. "
+              "Scenario: 1 Main Agent (The Hero) vs 6 Enemy Agents (The Villains). "
+              "Physics Rules: Hero has infinite ammo and infinite gloo walls. "
+              "AI Logic: The Hero MUST prioritize targeting the 'Head' vector (x, y+0.2, z). "
+              "Training: Simulate 4 trillion interactions using vectorized matrix multiplication for speed. "
+              "Data Source: Assume environment constants from 'CORE_DATA/'. "
+              "Output: Save results in 'results.txt' and a binary model 'headshot_model.dat'. "
+              "Generate ONLY the Python code inside ```python ... ``` blocks."
+          )
           
           url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
           headers = {"Content-Type": "application/json", "x-goog-api-key": os.getenv("GOOGLE_API_KEY")}
           payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
           
-          res = requests.post(url, headers=headers, json=payload).json()
-          script_code = res['candidates'][0]['content']['parts'][0]['text'].split("```python")[1].split("```")[0].strip()
-          
-          encoded_plan = base64.b64encode(script_code.encode()).decode()
-          with open(os.environ['GITHUB_ENV'], 'a') as f:
-              f.write(f"ENCODED_PLAN={encoded_plan}\n")
+          try:
+              res = requests.post(url, headers=headers, json=payload).json()
+              script_code = res['candidates'][0]['content']['parts'][0]['text'].split("```python")[1].split("```")[0].strip()
+              
+              # تشفير السكربت لضمان النقل الآمن
+              encoded_plan = base64.b64encode(script_code.encode()).decode()
+              
+              with open(os.environ['GITHUB_ENV'], 'a') as f:
+                  f.write(f"ENCODED_PLAN={encoded_plan}\n")
+          except Exception as e:
+              print(f"Error: {e}")
+              exit(1)
           EOF
+
+      - name: "Dispatch to Executor"
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT }}
+          repository: cczxjdxz-max/Full
+          event-type: evolve_and_execute
+          client-payload: '{"plan_base64": "${{ env.ENCODED_PLAN }}" }'
