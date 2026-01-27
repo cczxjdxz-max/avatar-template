@@ -1,4 +1,4 @@
-name: 1. The Manager (MIND) - AI Matrix Extractor
+name: 1. The Manager (MIND) - Gemini 2.5 Lite
 
 on:
   workflow_dispatch:
@@ -15,34 +15,46 @@ jobs:
           GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
         run: |
           python3 << 'EOF'
-          import os, subprocess, json
+          import os, subprocess, json, sys
 
           api_key = os.getenv("GOOGLE_API_KEY")
           download_url = os.getenv("GAME_DOWNLOAD_URL")
           
-          prompt_text = f"""
-          You are a Data Scientist. Target: {download_url}.
-          Objective: Extract NUMERIC DATA for AI simulation.
-          
-          STRICT SCRIPT REQUIREMENTS:
-          1. Check if the APK download is successful and size > 100MB. If not, EXIT WITH ERROR.
-          2. Use 'zipfile' to find: 'Assembly-CSharp.dll', 'global-metadata.dat', and all '.json', '.bytes' files.
-          3. Focus on 'assets/bin/Data/'.
-          4. If CORE_DATA is empty at the end, the script must raise an Exception.
-          5. DO NOT use sudo/apt.
-          
-          Generate ONLY the Python script.
-          """
+          prompt_text = (
+              f"Generate a Python 3 script for GitHub Actions. Target: {download_url}. "
+              "Objective: Download APK and extract ONLY numeric/data files: "
+              "'Assembly-CSharp.dll', 'global-metadata.dat', and all '.json', '.bytes' files "
+              "from 'assets/bin/Data/'. If CORE_DATA is empty, script must exit(1). "
+              "Generate ONLY the Python code inside ```python ... ``` blocks."
+          )
           
           payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+          # الرابط الذي طلبته بالضبط
+          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
           
-          result = subprocess.run(["curl", "-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", json.dumps(payload), url], capture_output=True, text=True)
-          response = json.loads(result.stdout)
-          script_code = response["candidates"][0]["content"]["parts"][0]["text"].split("```python")[1].split("```")[0].strip()
-
-          with open(os.environ['GITHUB_ENV'], 'a') as f:
-              f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
+          try:
+              result = subprocess.run([
+                  "curl", "-s", "-X", "POST", 
+                  "-H", "Content-Type: application/json",
+                  "-H", f"x-goog-api-key: {api_key}",
+                  "-d", json.dumps(payload), url
+              ], capture_output=True, text=True)
+              
+              response = json.loads(result.stdout)
+              
+              if 'candidates' in response:
+                  content = response['candidates'][0]['content']['parts'][0]['text']
+                  script_code = content.split("```python")[1].split("```")[0].strip()
+                  with open(os.environ['GITHUB_ENV'], 'a') as f:
+                      f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
+              else:
+                  print("API Error Response:")
+                  print(json.dumps(response, indent=2))
+                  sys.exit(1)
+                  
+          except Exception as e:
+              print(f"Execution Error: {e}")
+              sys.exit(1)
           EOF
 
       - name: "Dispatch to Executor"
