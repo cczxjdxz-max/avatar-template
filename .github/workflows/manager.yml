@@ -1,60 +1,56 @@
-name: 1. The Manager (MIND) - Competitive Co-evolution
+name: 1. The Leader (avatar-template) - War Architect
 
 on:
   workflow_dispatch:
 
 jobs:
-  evolve_warfare:
+  dispatch_to_full:
     runs-on: ubuntu-latest
     steps:
-      - name: "Inject Evolutionary Arms Race Logic"
+      - name: "Build Evolutionary War Script"
         run: |
           python3 << 'EOF'
           import base64, os
 
-          co_evolution_logic = """
+          # منطق الصراع: البطل ضد 100 عقل متطور (لا توجد استراتيجية مسبقة)
+          war_logic = """
           import numpy as np
 
-          class WarZone:
+          class CompetitiveArena:
               def __init__(self):
-                  # عقل البطل وعقل الـ 100 لاعب (يبدأون من الصفر)
-                  self.hero_brain = np.random.normal(0, 1, (2048, 1024)).astype(np.float32)
-                  self.enemy_collective_brain = np.random.normal(0, 1, (2048, 1024)).astype(np.float32)
-                  self.generations = 500 # 500 جيل من الصراع
+                  # توليد عقول عشوائية تماماً (صفر استراتيجية)
+                  self.hero_brain = np.random.randn(2048, 1024).astype(np.float32)
+                  self.enemy_collective = np.random.randn(2048, 1024).astype(np.float32)
+                  self.generations = 1000 # زيادة الأجيال لتعقيد المعركة
 
-              def battle_cycle(self):
-                  print('Initiating Co-evolution: Hero vs 100 Evolving Enemies...')
+              def evolve(self):
+                  print('Co-evolution started: Hero vs 100 Adapting Enemies...')
                   for gen in range(self.generations):
-                      # 1. البطل يحاول ابتكار حركة
-                      # 2. الـ 100 يحللون ويفشلون حركة البطل
-                      # 3. البطل يطور حركة مضادة للمضادة
-                      learning_step = 0.01
-                      self.hero_brain += np.random.normal(0, learning_step, self.hero_brain.shape)
-                      self.enemy_collective_brain += np.random.normal(0, learning_step, self.enemy_collective_brain.shape)
+                      # طفرة عشوائية للبطل (محاولة اكتشاف حركة)
+                      # طفرة للخصوم (محاولة كسر حركة البطل)
+                      mutation = 0.02
+                      self.hero_brain += np.random.normal(0, mutation, self.hero_brain.shape)
+                      self.enemy_collective += np.random.normal(0, mutation, self.enemy_collective.shape)
                       
-                      if gen % 100 == 0:
-                          print(f'Generation {gen}: Warfare complexity increasing...')
+                      if gen % 200 == 0:
+                          print(f'Gen {gen}: Survival tactics are self-forming...')
 
-          def start():
-              war = WarZone()
-              war.battle_cycle()
-              # حفظ العقل الذي صمد أمام 100 عقل متطور
-              with open('war_master_brain.dat', 'wb') as f:
-                  f.write(war.hero_brain.tobytes())
-          
+                  self.hero_brain.tofile('war_master_brain.dat')
+
           if __name__ == '__main__':
-              start()
+              arena = CompetitiveArena()
+              arena.evolve()
           """
           
-          encoded_plan = base64.b64encode(co_evolution_logic.encode()).decode()
+          encoded = base64.b64encode(war_logic.encode()).decode()
           with open(os.environ['GITHUB_ENV'], 'a') as f:
-              f.write(f"ENCODED_PLAN={encoded_plan}\n")
+              f.write(f"ENCODED_PLAN={encoded}\n")
           EOF
 
-      - name: "Dispatch to Full"
+      - name: "Trigger Full Repository"
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PAT }}
           repository: cczxjdxz-max/Full
-          event-type: competitive_evolution
+          event-type: start_warfare_sim
           client-payload: '{"plan_base64": "${{ env.ENCODED_PLAN }}" }'
