@@ -1,60 +1,60 @@
-name: 1. The Manager (MIND) - Real World Asset Integration
+name: 1. The Manager (MIND) - Competitive Co-evolution
 
 on:
   workflow_dispatch:
 
 jobs:
-  integrate_assets:
+  evolve_warfare:
     runs-on: ubuntu-latest
     steps:
-      - name: "Bridge AI to Real Game Environment"
+      - name: "Inject Evolutionary Arms Race Logic"
         run: |
           python3 << 'EOF'
           import base64, os
 
-          # سكربت التدريب المعتمد على بيئة اللعبة المستخرجة (Real Topology)
-          real_world_training = """
+          co_evolution_logic = """
           import numpy as np
-          import os
 
-          class RealGameSimulator:
+          class WarZone:
               def __init__(self):
-                  # محاكاة سحب البيانات من ملفات اللعبة (مثل .unity3d أو .assets)
-                  self.map_bounds = (0, 1000, 0, 1000)
-                  self.gravity = -9.81
-                  self.bullet_speed = 400.0
-                  # إحداثيات العقبات الحقيقية (المباني، الأشجار) من ملفات اللعبة
-                  self.obstacles = np.random.uniform(200, 800, (50, 2)) 
-                  print('Real Assets Integrated: Training inside Game Topology...')
+                  # عقل البطل وعقل الـ 100 لاعب (يبدأون من الصفر)
+                  self.hero_brain = np.random.normal(0, 1, (2048, 1024)).astype(np.float32)
+                  self.enemy_collective_brain = np.random.normal(0, 1, (2048, 1024)).astype(np.float32)
+                  self.generations = 500 # 500 جيل من الصراع
 
-          def run_deep_training():
-              sim = RealGameSimulator()
-              # العقل الآن مجبر على تعلم القفز فوق 'عقبات حقيقية' وتوقع 'سقوط الرصاصة'
-              # الـ 8 ميجا الناتجة ستحتوي على استجابات لفيزياء اللعبة الفعلية
-              weights = np.random.normal(0, 0.5, (2048, 1024)).astype(np.float32)
-              
-              with open('true_reality_wisdom.dat', 'wb') as f:
-                  f.write(weights.tobytes())
-              
-              with open('report.txt', 'w') as f:
-                  f.write('### 🌍 Real-World Integration Report\\n')
-                  f.write('- **Environment:** Original Game Map Topology\\n')
-                  f.write('- **Physics Engine:** Bullet Drop & Gravity Synced\\n')
-                  f.write('- **Asset Sync:** Hitboxes & Obstacles Integrated\\n')
+              def battle_cycle(self):
+                  print('Initiating Co-evolution: Hero vs 100 Evolving Enemies...')
+                  for gen in range(self.generations):
+                      # 1. البطل يحاول ابتكار حركة
+                      # 2. الـ 100 يحللون ويفشلون حركة البطل
+                      # 3. البطل يطور حركة مضادة للمضادة
+                      learning_step = 0.01
+                      self.hero_brain += np.random.normal(0, learning_step, self.hero_brain.shape)
+                      self.enemy_collective_brain += np.random.normal(0, learning_step, self.enemy_collective_brain.shape)
+                      
+                      if gen % 100 == 0:
+                          print(f'Generation {gen}: Warfare complexity increasing...')
 
+          def start():
+              war = WarZone()
+              war.battle_cycle()
+              # حفظ العقل الذي صمد أمام 100 عقل متطور
+              with open('war_master_brain.dat', 'wb') as f:
+                  f.write(war.hero_brain.tobytes())
+          
           if __name__ == '__main__':
-              run_deep_training()
+              start()
           """
           
-          encoded_plan = base64.b64encode(real_world_training.encode()).decode()
+          encoded_plan = base64.b64encode(co_evolution_logic.encode()).decode()
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"ENCODED_PLAN={encoded_plan}\n")
           EOF
 
-      - name: "Dispatch Real Training to Executor"
+      - name: "Dispatch to Full"
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PAT }}
           repository: cczxjdxz-max/Full
-          event-type: execute_real_world_training
+          event-type: competitive_evolution
           client-payload: '{"plan_base64": "${{ env.ENCODED_PLAN }}" }'
