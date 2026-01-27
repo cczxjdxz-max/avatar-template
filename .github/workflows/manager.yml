@@ -1,64 +1,32 @@
-name: 1. The Manager (MIND) - Real Brain Injector
-
-on:
-  workflow_dispatch:
-
-jobs:
-  inject_real_arena:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Generate High-Fidelity AI Model"
+      - name: "Design 1vs100 Tactical Arena"
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           python3 << 'EOF'
-          import base64, os
+          import os, requests, json, base64
 
-          # سكربت المحاكاة الاحترافي
-          arena_script = """
-          import numpy as np
-          import os
-
-          def run_simulation():
-              print('Initiating 4 Trillion Matrix Calculations...')
-              
-              # محاكاة شبكة عصبية بسيطة (3 طبقات)
-              # هذه المصفوفات تمثل 'الخبرة' في تصحيح الإيم نحو الرأس
-              input_size = 3  # (x, y, z) coordinates
-              hidden_size = 64
-              output_size = 2 # (yaw, pitch) adjustments
-              
-              # توليد أوزان بناءً على توزيع طبيعي يحاكي نجاح الـ 4 تريليون تجربة
-              layer1 = np.random.randn(input_size, hidden_size).astype(np.float32)
-              layer2 = np.random.randn(hidden_size, output_size).astype(np.float32)
-              
-              # حفظ الأوزان كملف باينري حقيقي (هذا هو العقل)
-              with open('headshot_model.dat', 'wb') as f:
-                  f.write(layer1.tobytes())
-                  f.write(layer2.tobytes())
-              
-              # إحصائيات واقعية
-              iterations = 4_000_000_000_000
-              with open('results.txt', 'w') as f:
-                  f.write(f'| Simulation Epochs | 4,000,000,000,000 |\\n')
-                  f.write(f'| Target Priority | Head (Y-Axis +0.22) |\\n')
-                  f.write(f'| Training Loss | 0.0000421 |\\n')
-                  f.write(f'| Model Entropy | Stable |\\n')
-                  f.write(f'| Headshot Ratio | 99.8% |\\n')
-              
-              print(f'Done! Model size: {os.path.getsize("headshot_model.dat") // 1024} KB')
-
-          if __name__ == '__main__':
-              run_simulation()
+          prompt_text = """
+          Generate a Python 3 script for an Advanced Battle Simulation:
+          1. SCENARIO: 1 Hero vs 100 Enemies. 
+          2. STATS: Each enemy has 250 HP. Hero focuses on Headshot (Damage: 150-300 per hit).
+          3. LOGIC: 
+             - Hero detects 'Knockdown' event to switch targets instantly.
+             - Hero has 15s to 'Buy Gear' before the 1000m distance gap closes.
+             - Infinite Gloo-Walls for defense.
+          4. AI TRAINING: Use Reinforcement Learning to optimize 'Time-to-Kill' (TTK) against 100 targets.
+          5. SCALE: Simulate 99^20 iterations.
+          6. STATS: Track 'Headshot Accuracy', 'Average TTK', and 'Gloo-Wall reaction time'.
+          7. SAVE: Export weights to 'warrior_pro.dat'.
           """
           
-          encoded_plan = base64.b64encode(arena_script.encode()).decode()
+          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+          headers = {"Content-Type": "application/json", "x-goog-api-key": os.getenv("GOOGLE_API_KEY")}
+          payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+          
+          res = requests.post(url, headers=headers, json=payload).json()
+          script_code = res['candidates'][0]['content']['parts'][0]['text'].split("```python")[1].split("```")[0].strip()
+          
+          encoded_plan = base64.b64encode(script_code.encode()).decode()
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"ENCODED_PLAN={encoded_plan}\n")
           EOF
-
-      - name: "Dispatch to Executor"
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.PAT }}
-          repository: cczxjdxz-max/Full
-          event-type: evolve_and_execute
-          client-payload: '{"plan_base64": "${{ env.ENCODED_PLAN }}" }'
