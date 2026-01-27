@@ -1,61 +1,49 @@
-name: 1. The Manager (MIND) - Final Training Architect
+name: 1. The Manager (MIND) - Visual Simulation & Analysis
 
 on:
   workflow_dispatch:
 
 jobs:
-  plan_evolution:
+  generate_visual_report:
     runs-on: ubuntu-latest
     steps:
-      - name: "Generate Advanced Learning Script"
+      - name: "Request Visual Simulation Script"
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           python3 << 'EOF'
-          import base64, os
+          import os, requests, json, base64
 
-          # سكربت التدريب العميق: تحليل الهزائم وتوليد الحكمة
-          training_logic = """
-          import numpy as np
-          import os
-
-          def start_discovery():
-              print('Initiating 99^15 Failure-Analysis Cycle...')
-              
-              # توليد مصفوفة ذكاء ضخمة (2048x1024) لضمان استيعاب الـ 88% من بيانات اللعبة
-              # الأوزان تبدأ عشوائية وتتعدل بناءً على 'محاكاة الهزيمة'
-              np.random.seed(42)
-              weights = np.random.randn(2048, 1024).astype(np.float32)
-              
-              # محاكاة التطور: البطل يكتشف أنماط الـ 100 خصم
-              # هنا يتم دمج بيانات الفيزياء، القفز، وسرعة وضع الثلج
-              for layer in range(1, 6):
-                  print(f'Processing Evolution Layer {layer}/5...')
-                  weights *= 1.05  # تقوية الروابط العصبية الناجحة
-              
-              # حفظ ملف الحكمة المكتشفة
-              with open('discovered_wisdom.dat', 'wb') as f:
-                  f.write(weights.tobytes())
-              
-              # إنشاء التقرير النهائي
-              with open('results.txt', 'w') as f:
-                  f.write('| Training Metric | Result |\\n| :--- | :--- |\\n')
-                  f.write('| Failure Analysis Loops | 99^15 |\\n')
-                  f.write('| Weakness Identification | Self-Taught (After Defeats) |\\n')
-                  f.write('| Reaction Optimization | Frame-Level Accuracy |\\n')
-                  f.write('| Adaptive Skill Gap | Hero +400% vs 100 Enemies |\\n')
-
-          if __name__ == '__main__':
-              start_discovery()
+          prompt_text = """
+          Generate a Python 3 script that visualizes the 'discovered_wisdom.dat' AI's combat strategy against 100 enemies.
+          Use Matplotlib for an abstract, top-down 2D simulation:
+          1. ENVIRONMENT: A 1000x1000m arena.
+          2. ACTORS: 1 Hero (blue dot), 100 Enemies (red dots) moving towards the hero.
+          3. AI LOGIC: The script should load 'discovered_wisdom.dat' to dictate the Hero's actions:
+             - Movement: Hero's dot moves to avoid enemies.
+             - Gloo Walls: Green lines appear to represent Gloo-Walls placed by the hero.
+             - Aiming: A thin yellow line indicates the hero's aim towards an enemy's head.
+          4. SIMULATION: Run for 100 frames, updating positions based on simple physics.
+          5. OUTPUT: Save the animation as a GIF file (e.g., 'combat_simulation.gif').
+          6. STATS: Print average enemy kill distance and hero's survival duration.
           """
           
-          encoded_plan = base64.b64encode(training_logic.encode()).decode()
+          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+          headers = {"Content-Type": "application/json", "x-goog-api-key": os.getenv("GOOGLE_API_KEY")}
+          payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+          
+          res = requests.post(url, headers=headers, json=payload).json()
+          script_code = res['candidates'][0]['content']['parts'][0]['text'].split("```python")[1].split("```")[0].strip()
+          
+          encoded_plan = base64.b64encode(script_code.encode()).decode()
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"ENCODED_PLAN={encoded_plan}\n")
           EOF
 
-      - name: "Send Plan to Executor"
+      - name: "Send Plan to Executor for Video Generation"
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PAT }}
           repository: cczxjdxz-max/Full
-          event-type: evolve_and_execute
+          event-type: generate_video
           client-payload: '{"plan_base64": "${{ env.ENCODED_PLAN }}" }'
