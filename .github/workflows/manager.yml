@@ -1,59 +1,17 @@
-name: 1. The Leader - 10 Minute Blitz Evolution
+name: 1. Leader Blitz - Final Call
 on:
   workflow_dispatch:
 jobs:
-  blitz_training:
+  dispatch_job:
     runs-on: ubuntu-latest
     steps:
-      - name: "Accelerated Co-evolution"
+      - name: "Send Mission to Full"
         run: |
-          python3 << 'EOF'
-          import base64, os, time
-
-          # منطق التدريب السريع: مكثف وعالي السرعة
-          blitz_logic = """
-          import numpy as np
-          import matplotlib.pyplot as plt
-          import matplotlib.animation as animation
-
-          def run_blitz():
-              start_time = time.time()
-              # رفع معدل التعلم (Learning Rate) لضغط الوقت
-              learning_rate = 0.5 
-              hero_brain = np.random.randn(2048, 1024).astype(np.float32)
-              
-              # محاكاة القتال العنيف وتوليد الفيديو فوراً
-              fig, ax = plt.subplots(figsize=(8,8))
-              ax.set_facecolor('black')
-              
-              def update(i):
-                  ax.clear()
-                  ax.set_xlim(0, 1000); ax.set_ylim(0, 1000)
-                  # حركة 'اللا ملموس' (Intangible Movement)
-                  pos = np.random.uniform(300, 700, 2)
-                  ax.plot(pos[0], pos[1], 'oc', markersize=15)
-                  enemies = np.random.uniform(0, 1000, (100, 2))
-                  ax.plot(enemies[:,0], enemies[:,1], 'or', markersize=4, alpha=0.5)
-                  # تصويب 'الطلقة الواحدة' (One-Tap Logic)
-                  ax.plot([pos[0], enemies[0,0]], [pos[1], enemies[0,1]], '-y', linewidth=2)
-
-              ani = animation.FuncAnimation(fig, update, frames=100, interval=30)
-              ani.save('blitz_god_mode.gif', writer='pillow')
-              hero_brain.tofile('god_brain.dat')
-              print(f"Blitz Training Completed in {time.time() - start_time} seconds.")
-
-          if __name__ == '__main__':
-              run_blitz()
-          """
-          encoded = base64.b64encode(blitz_logic.encode()).decode()
-          with open(os.environ['GITHUB_ENV'], 'a') as f:
-              f.write(f"BLITZ_PLAN={encoded}\n")
-          EOF
-
-      - name: "Dispatch to Full"
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.PAT }}
-          repository: cczxjdxz-max/Full
-          event-type: run_blitz_evo
-          client-payload: '{"plan": "${{ env.BLITZ_PLAN }}" }'
+          curl -X POST \
+          -H "Authorization: token ${{ secrets.PAT }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
+          -d '{"event_type": "run_blitz_evo", "client_payload": {"plan": "SGVsbG8gR29kIE1vZGU="}}'
+          
+          # ملاحظة: إذا ظهر لك خطأ 404، فاسم المستودع أو المستخدم خطأ.
+          # إذا ظهر 401، فالتوكن (PAT) غير صالح.
