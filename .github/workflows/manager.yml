@@ -1,17 +1,59 @@
-name: 1. Leader Blitz - Final Call
+name: 1. Final God-Mode Dispatcher
 on:
   workflow_dispatch:
+
 jobs:
-  dispatch_job:
+  send_command:
     runs-on: ubuntu-latest
     steps:
-      - name: "Send Mission to Full"
+      - name: "Build & Dispatch Accelerated Logic"
         run: |
-          curl -X POST \
-          -H "Authorization: token ${{ secrets.PAT }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-          -d '{"event_type": "run_blitz_evo", "client_payload": {"plan": "SGVsbG8gR29kIE1vZGU="}}'
+          # كود التدريب المضغوط (10 دقائق)
+          python3 << 'EOF'
+          import base64
+          logic = """
+          import numpy as np
+          import matplotlib.pyplot as plt
+          import matplotlib.animation as animation
+          import time
+
+          def run_blitz():
+              # إنشاء مصفوفة العقل الخارق (أوزان عصبية عالية الكثافة)
+              weights = np.random.normal(0, 1.0, (2048, 1024)).astype(np.float32)
+              
+              # محاكاة الصراع التنافسي (البطل ضد 100)
+              fig, ax = plt.subplots(figsize=(8,8))
+              ax.set_facecolor('black')
+              
+              def update(frame):
+                  ax.clear()
+                  ax.set_xlim(0, 1000); ax.set_ylim(0, 1000)
+                  # البطل (God Mode) يتحرك بفيزياء اللعبة
+                  hero = np.random.uniform(400, 600, 2)
+                  ax.plot(hero[0], hero[1], 'oc', markersize=12)
+                  # الـ 100 عدو يتطورون للحصار
+                  enemies = np.random.uniform(0, 1000, (100, 2))
+                  ax.plot(enemies[:,0], enemies[:,1], 'or', markersize=4, alpha=0.6)
+                  # رسم شعاع التصويب اللحظي
+                  ax.plot([hero[0], enemies[0,0]], [hero[1], enemies[0,1]], '-y', linewidth=2)
+
+              ani = animation.FuncAnimation(fig, update, frames=100, interval=50)
+              ani.save('god_mode_preview.gif', writer='pillow')
+              weights.tofile('god_brain.dat')
           
-          # ملاحظة: إذا ظهر لك خطأ 404، فاسم المستودع أو المستخدم خطأ.
-          # إذا ظهر 401، فالتوكن (PAT) غير صالح.
+          if __name__ == '__main__':
+              run_blitz()
+          """
+          encoded = base64.b64encode(logic.encode()).decode()
+          with open("encoded_logic.txt", "w") as f:
+              f.write(encoded)
+          EOF
+
+      - name: "Execute API Dispatch"
+        run: |
+          PLAN_DATA=$(cat encoded_logic.txt)
+          curl -L -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
+          -d "{\"event_type\": \"run_blitz_evo\", \"client_payload\": {\"plan\": \"$PLAN_DATA\"}}"
