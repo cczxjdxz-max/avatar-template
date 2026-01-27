@@ -1,12 +1,12 @@
-name: 1. The Manager - Body Builder Command
+name: 1. The Manager - Dispatch Body Build
 on:
-  workflow_dispatch: # تشغيل يدوي عند الاستعداد
+  workflow_dispatch:
 
 jobs:
-  dispatch_build:
+  dispatch_command:
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Dispatch Build Command to Full
+      - name: 🚀 Trigger Executor to Build Empty APK
         run: |
           curl -L -X POST \
           -H "Accept: application/vnd.github+json" \
