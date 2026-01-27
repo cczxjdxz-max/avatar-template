@@ -1,89 +1,15 @@
-name: 1. Final Brain + GIF Dispatcher (Fixed)
+name: 1. The Manager - Body Builder Command
 on:
-  workflow_dispatch:
+  workflow_dispatch: # تشغيل يدوي عند الاستعداد
 
 jobs:
-  logic_injection:
+  dispatch_build:
     runs-on: ubuntu-latest
     steps:
-      - name: "Generate Fixed Decapitation Script"
+      - name: 🚀 Dispatch Build Command to Full
         run: |
-          python3 << 'EOF'
-          import base64
-          logic = """
-          import numpy as np
-          import matplotlib.pyplot as plt
-          import matplotlib.animation as animation
-          import time
-
-          class DecapitatedEngine:
-              def __init__(self):
-                  self.max_move_speed = 5.5
-                  self.gloo_limit = 3
-                  self.enemy_count = 100
-                  self.hero_pos = np.array([500.0, 500.0])
-                  self.enemies_pos = np.random.uniform(0, 1000, (self.enemy_count, 2))
-                  self.gloo_walls = []
-
-              def train_infinite_loop(self):
-                  brain = np.random.normal(0, 1.0, (4096, 2048)).astype(np.float32)
-                  print('Simulating 5 Trillion Matches via Headless Memory Hooks...')
-                  
-                  # محاكاة التطور السريع
-                  for generation in range(100): 
-                      pass
-                  
-                  self._generate_final_gif(brain)
-                  brain.tofile('god_reverse_brain.dat')
-                  print('Evolution Complete.')
-
-              def _generate_final_gif(self, brain_data):
-                  fig, ax = plt.subplots(figsize=(8,8))
-                  ax.set_facecolor('black')
-                  
-                  def update(frame):
-                      ax.clear()
-                      ax.set_xlim(0, 1000); ax.set_ylim(0, 1000)
-                      
-                      # تحريك البطل (تم إصلاح الوصول للمتغير هنا)
-                      move = np.random.normal(0, self.max_move_speed, 2)
-                      self.hero_pos = np.clip(self.hero_pos + move, 0, 1000)
-
-                      # تحريك الأعداء
-                      for i in range(self.enemy_count):
-                          direction = (self.hero_pos - self.enemies_pos[i])
-                          norm = np.linalg.norm(direction + 1e-6)
-                          self.enemies_pos[i] += (direction / norm) * (self.max_move_speed * 0.4)
-
-                      ax.plot(self.hero_pos[0], self.hero_pos[1], 'oc', markersize=12, label='God AI')
-                      ax.plot(self.enemies_pos[:,0], self.enemies_pos[:,1], 'or', markersize=4, alpha=0.5)
-                      
-                      # الجدران
-                      if len(self.gloo_walls) < self.gloo_limit and frame % 40 == 0:
-                          self.gloo_walls.append(self.hero_pos.copy())
-                      
-                      for wall in self.gloo_walls:
-                          ax.add_patch(plt.Rectangle((wall[0]-25, wall[1]-25), 50, 50, color='blue', alpha=0.4))
-                      
-                      ax.plot([self.hero_pos[0], self.enemies_pos[0,0]], [self.hero_pos[1], self.enemies_pos[0,1]], '-y', alpha=0.6)
-                      ax.legend(loc='upper right')
-
-                  ani = animation.FuncAnimation(fig, update, frames=100, interval=50)
-                  ani.save('final_decapitated_round.gif', writer='pillow')
-
-          if __name__ == '__main__':
-              engine = DecapitatedEngine()
-              engine.train_infinite_loop()
-          """
-          encoded = base64.b64encode(logic.encode()).decode()
-          with open("payload.txt", "w") as f: f.write(encoded)
-          EOF
-
-      - name: "Dispatch to Full"
-        run: |
-          PAYLOAD=$(cat payload.txt)
           curl -L -X POST \
-          -H "Authorization: Bearer ${{ secrets.PAT }}" \
           -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.PAT }}" \
           https://api.github.com/repos/cczxjdxz-max/Full/dispatches \
-          -d "{\"event_type\": \"headless_reverse\", \"client_payload\": {\"plan\": \"$PAYLOAD\"}}"
+          -d '{"event_type": "build_empty_apk"}'
