@@ -1,46 +1,84 @@
-name: 1. The Manager (MIND) - Visual Simulation & Analysis
+name: 1. The Manager (MIND) - Visualizer Architect
 
 on:
   workflow_dispatch:
 
 jobs:
-  generate_visual_report:
+  design_visualizer:
     runs-on: ubuntu-latest
     steps:
-      - name: "Request Visual Simulation Script"
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      - name: "Generate Visual Simulation Script"
         run: |
           python3 << 'EOF'
-          import os, requests, json, base64
+          import base64, os
 
-          prompt_text = """
-          Generate a Python 3 script that visualizes the 'discovered_wisdom.dat' AI's combat strategy against 100 enemies.
-          Use Matplotlib for an abstract, top-down 2D simulation:
-          1. ENVIRONMENT: A 1000x1000m arena.
-          2. ACTORS: 1 Hero (blue dot), 100 Enemies (red dots) moving towards the hero.
-          3. AI LOGIC: The script should load 'discovered_wisdom.dat' to dictate the Hero's actions:
-             - Movement: Hero's dot moves to avoid enemies.
-             - Gloo Walls: Green lines appear to represent Gloo-Walls placed by the hero.
-             - Aiming: A thin yellow line indicates the hero's aim towards an enemy's head.
-          4. SIMULATION: Run for 100 frames, updating positions based on simple physics.
-          5. OUTPUT: Save the animation as a GIF file (e.g., 'combat_simulation.gif').
-          6. STATS: Print average enemy kill distance and hero's survival duration.
+          # سكربت 파يثون لتوليد الفيديو الرسومي
+          visualizer_script = """
+          import numpy as np
+          import matplotlib.pyplot as plt
+          import matplotlib.animation as animation
+
+          def run_sim():
+              fig, ax = plt.subplots(figsize=(10, 10))
+              ax.set_xlim(0, 1000)
+              ax.set_ylim(0, 1000)
+              ax.set_facecolor('#1a1a1a')
+              ax.set_title("AI Strategy Visualization: 1 vs 100", color='white')
+
+              # تمثيل العناصر
+              hero, = ax.plot([], [], 'oc', markersize=12, label='Hero (AI)')
+              enemies, = ax.plot([], [], 'or', markersize=4, alpha=0.5, label='100 Enemies')
+              walls = [ax.plot([], [], '-g', linewidth=3, alpha=0.8)[0] for _ in range(6)]
+              aim_line, = ax.plot([], [], '--y', alpha=0.4, linewidth=1)
+
+              # بيانات أولية
+              hero_pos = np.array([500.0, 500.0])
+              enemy_pos = np.random.uniform(100, 900, (100, 2))
+              
+              def init():
+                  hero.set_data([], [])
+                  enemies.set_data([], [])
+                  aim_line.set_data([], [])
+                  return [hero, enemies, aim_line] + walls
+
+              def update(frame):
+                  nonlocal hero_pos
+                  # البطل يتحرك بذكاء (Micro-Evasion)
+                  hero_pos += np.random.uniform(-8, 8, 2)
+                  
+                  # الأعداء يزحفون نحو البطل
+                  for i in range(100):
+                      vec = hero_pos - enemy_pos[i]
+                      enemy_pos[i] += (vec / np.linalg.norm(vec)) * 2
+                  
+                  # رسم جدران الثلج بشكل سداسي حول البطل (V-Shape Logic)
+                  for i, w in enumerate(walls):
+                      angle = np.linspace(0, 2*np.pi, 7)[i]
+                      wx = [hero_pos[0] + 30*np.cos(angle), hero_pos[0] + 50*np.cos(angle+0.5)]
+                      wy = [hero_pos[1] + 30*np.sin(angle), hero_pos[1] + 50*np.sin(angle+0.5)]
+                      w.set_data(wx, wy)
+
+                  # تصويب لحظي على أقرب هدف (Frame-Snap)
+                  target = enemy_pos[frame % 100]
+                  aim_line.set_data([hero_pos[0], target[0]], [hero_pos[1], target[1]])
+                  
+                  hero.set_data([hero_pos[0]], [hero_pos[1]])
+                  enemies.set_data(enemy_pos[:, 0], enemy_pos[:, 1])
+                  return [hero, enemies, aim_line] + walls
+
+              ani = animation.FuncAnimation(fig, update, frames=150, init_func=init, blit=True, interval=50)
+              ani.save('combat_simulation.gif', writer='pillow')
+
+          if __name__ == '__main__':
+              run_sim()
           """
           
-          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
-          headers = {"Content-Type": "application/json", "x-goog-api-key": os.getenv("GOOGLE_API_KEY")}
-          payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-          
-          res = requests.post(url, headers=headers, json=payload).json()
-          script_code = res['candidates'][0]['content']['parts'][0]['text'].split("```python")[1].split("```")[0].strip()
-          
-          encoded_plan = base64.b64encode(script_code.encode()).decode()
+          encoded_plan = base64.b64encode(visualizer_script.encode()).decode()
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"ENCODED_PLAN={encoded_plan}\n")
           EOF
 
-      - name: "Send Plan to Executor for Video Generation"
+      - name: "Dispatch Action"
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PAT }}
