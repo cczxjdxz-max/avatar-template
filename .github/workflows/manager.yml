@@ -1,52 +1,31 @@
-name: 1. The Manager (MIND) - Force Strike v9
-
-on:
-  workflow_dispatch:
-  repository_dispatch:
-    types: [analyze_failure]
-
-jobs:
-  design_and_command:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Generate Surgical Script (Bypassing AI Quota)"
-        id: bypass
+      - name: "Design Headshot Arena Plan"
         env:
-          GAME_DOWNLOAD_URL: "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           python3 << 'EOF'
-          import base64, os, json
+          import os, requests, json, base64
 
-          # هذا السكربت تم تجهيزه مسبقاً بناءً على خبرتنا في هيكل اللعبة
-          # سيقوم بالتحميل والاستخراج بدقة دون الحاجة لـ Gemini
-          surgical_script = f"""
-          import os, subprocess, zipfile
-          def run_mission():
-              target_url = "{os.getenv('GAME_DOWNLOAD_URL')}"
-              os.makedirs('CORE_DATA', exist_ok=True)
-              print(f'Downloading APK from {{target_url}}...')
-              subprocess.run(['wget', '-q', target_url, '-O', 'game.apk'], check=True)
-              
-              with zipfile.ZipFile('game.apk', 'r') as z:
-                  for file in z.namelist():
-                      # استهداف ملفات البرمجة والبيانات الرقمية حصراً
-                      if any(x in file for x in ['Assembly-CSharp.dll', 'global-metadata.dat', '.json', '.bytes', '.lua']):
-                          if 'assets/bin/Data/' in file or 'Managed' in file:
-                              z.extract(file, 'CORE_DATA')
-                              print(f'Captured: {{file}}')
-          if __name__ == "__main__":
-              run_mission()
+          prompt_text = """
+          Generate a High-Speed Python Simulation for Reinforcement Learning:
+          1. SCENARIO: 1 Main Agent vs 6 Enemy Agents.
+          2. GOAL: Main Agent must target ONLY the 'Head' vector (y-axis offset).
+          3. LOGIC: 
+             - Use Vectorized Math (NumPy style) to simulate 4 trillion shots.
+             - Main Agent has 'Aim-Lock' logic on Head coordinates.
+             - Enemies have standard movement patterns.
+          4. RULES: Infinite Ammo and Infinite Gloo Walls for the Main Agent.
+          5. STATS: Track Headshot Ratio, Wins, and Deaths for the Main Agent.
+          6. OUTPUT: Write a detailed summary to 'README.md' and save model weights to 'headshot_model.dat'.
           """
           
-          encoded_plan = base64.b64encode(surgical_script.encode()).decode()
+          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+          headers = {"Content-Type": "application/json", "x-goog-api-key": os.getenv("GOOGLE_API_KEY")}
+          payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+          
+          res = requests.post(url, headers=headers, json=payload).json()
+          script_code = res['candidates'][0]['content']['parts'][0]['text'].split("```python")[1].split("```")[0].strip()
+          
+          encoded_plan = base64.b64encode(script_code.encode()).decode()
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f"ENCODED_PLAN={encoded_plan}\n")
           EOF
-
-      - name: "Issue Dispatch to Executor"
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.PAT }}
-          repository: cczxjdxz-max/Full
-          event-type: evolve_and_execute
-          client-payload: '{"plan_base64": "${{ env.ENCODED_PLAN }}" }'
