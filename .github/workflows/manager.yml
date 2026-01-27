@@ -1,14 +1,3 @@
-name: 1. The Manager (MIND) - Gemini 2.5 Lite
-
-on:
-  workflow_dispatch:
-  repository_dispatch:
-    types: [analyze_failure]
-
-jobs:
-  design_and_command:
-    runs-on: ubuntu-latest
-    steps:
       - name: "Design Matrix Extraction Plan"
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
@@ -29,31 +18,36 @@ jobs:
           )
           
           payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-          # الرابط الذي طلبته بالضبط
           url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
           
+          # محاكاة طريقة الترمكس باستخدام headers دقيقة
+          curl_cmd = [
+              "curl", "-s", "-X", "POST",
+              "-H", "Content-Type: application/json",
+              "-H", f"x-goog-api-key: {api_key}",
+              "-d", json.dumps(payload),
+              url
+          ]
+
           try:
-              result = subprocess.run([
-                  "curl", "-s", "-X", "POST", 
-                  "-H", "Content-Type: application/json",
-                  "-H", f"x-goog-api-key: {api_key}",
-                  "-d", json.dumps(payload), url
-              ], capture_output=True, text=True)
-              
+              result = subprocess.run(curl_cmd, capture_output=True, text=True)
               response = json.loads(result.stdout)
               
               if 'candidates' in response:
                   content = response['candidates'][0]['content']['parts'][0]['text']
+                  # استخراج الكود البرمجي فقط
                   script_code = content.split("```python")[1].split("```")[0].strip()
+                  
+                  # حفظ السكربت في البيئة لإرساله
                   with open(os.environ['GITHUB_ENV'], 'a') as f:
                       f.write(f"PLAN_SCRIPT={json.dumps(script_code)}\n")
+                  print("✅ Success: Script generated.")
               else:
-                  print("API Error Response:")
+                  print("❌ API Response Error. Details:")
                   print(json.dumps(response, indent=2))
                   sys.exit(1)
-                  
           except Exception as e:
-              print(f"Execution Error: {e}")
+              print(f"❌ Connection failed: {e}")
               sys.exit(1)
           EOF
 
