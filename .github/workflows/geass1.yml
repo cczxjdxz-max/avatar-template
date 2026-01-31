@@ -1,0 +1,57 @@
+name: AI-Commander-Logic
+on:
+  repository_dispatch:
+    types: [fail_report]
+  workflow_dispatch:
+
+jobs:
+  commander:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🤖 AI Decision Making (Gemini 2.5 Flash Lite)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PAT: ${{ secrets.PAT }}
+          ERROR_LOG: ${{ github.event.client_payload.reason }}
+        run: |
+          cat << 'EOF' > commander.py
+          import os, requests, base64, json
+
+          # إعدادات الـ API التي طلبتها
+          API_KEY = os.getenv("GEMINI_API_KEY")
+          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+          
+          error = os.getenv("ERROR_LOG", "Initial Start: Optimization Needed")
+          prompt = f"As an expert AI Developer, fix the 'geass2.yml' workflow for Free Fire AI. Error: {error}. Requirements: Use 'unzip -o -j', 1T steps, and return ONLY the raw YAML code without markdown blocks."
+
+          payload = {
+              "contents": [{"parts": [{"text": prompt}]}]
+          }
+          headers = {"Content-Type": "application/json"}
+
+          # استدعاء Gemini 2.5 Flash Lite
+          response = requests.post(f"{URL}?key={API_KEY}", headers=headers, json=payload)
+          result = response.json()
+          
+          # استخراج الكود من الاستجابة
+          new_code = result['candidates'][0]['content']['parts'][0]['text'].strip()
+          
+          # تنظيف الكود إذا أضاف الجيمني علامات الـ markdown
+          new_code = new_code.replace('```yaml', '').replace('```', '').strip()
+
+          # تحديث مستودع المنفذ (Full)
+          REPO_URL = "https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/geass2.yml"
+          auth_headers = {"Authorization": f"token {os.getenv('PAT')}", "Accept": "application/vnd.github.v3+json"}
+          
+          r_get = requests.get(REPO_URL, headers=auth_headers).json()
+          sha = r_get.get('sha')
+          
+          update_payload = {
+              "message": "AI Auto-Repair via Gemini 2.5 Flash Lite",
+              "content": base64.b64encode(new_code.encode()).decode(),
+              "sha": sha,
+              "branch": "main"
+          }
+          requests.put(REPO_URL, headers=auth_headers, json=update_payload)
+          EOF
+          python3 commander.py
