@@ -8,50 +8,62 @@ jobs:
   commander:
     runs-on: ubuntu-latest
     steps:
-      - name: 🤖 AI Decision Making (Gemini 2.5 Flash Lite)
+      - name: 🤖 AI Decision Making
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # تم تغيير الاسم هنا ليطابق ما لديك في الـ Secrets
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           PAT: ${{ secrets.PAT }}
           ERROR_LOG: ${{ github.event.client_payload.reason }}
         run: |
           cat << 'EOF' > commander.py
-          import os, requests, base64, json
+          import os, requests, base64, json, sys
 
-          # إعدادات الـ API التي طلبتها
-          API_KEY = os.getenv("GEMINI_API_KEY")
+          # قراءة المفتاح بالاسم الجديد
+          API_KEY = os.getenv("GOOGLE_API_KEY")
+          PAT = os.getenv("PAT")
+          
+          if not API_KEY:
+              print("❌ Error: GOOGLE_API_KEY is missing! Please check your Secrets.")
+              sys.exit(1)
+
           URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+          error = os.getenv("ERROR_LOG", "Initial optimization and setup")
           
-          error = os.getenv("ERROR_LOG", "Initial Start: Optimization Needed")
-          prompt = f"As an expert AI Developer, fix the 'geass2.yml' workflow for Free Fire AI. Error: {error}. Requirements: Use 'unzip -o -j', 1T steps, and return ONLY the raw YAML code without markdown blocks."
+          prompt = f"As an AI expert, fix 'geass2.yml' for Free Fire AI. Error: {error}. Requirements: Use 'unzip -o -j', 1T steps, and return ONLY the raw YAML code."
 
-          payload = {
-              "contents": [{"parts": [{"text": prompt}]}]
-          }
-          headers = {"Content-Type": "application/json"}
-
-          # استدعاء Gemini 2.5 Flash Lite
-          response = requests.post(f"{URL}?key={API_KEY}", headers=headers, json=payload)
+          payload = {"contents": [{"parts": [{"text": prompt}]}]}
+          
+          # الاتصال بـ Gemini
+          response = requests.post(f"{URL}?key={API_KEY}", json=payload)
           result = response.json()
-          
-          # استخراج الكود من الاستجابة
+
+          if 'candidates' not in result:
+              print("❌ Gemini API Error:", json.dumps(result, indent=2))
+              sys.exit(1)
+
           new_code = result['candidates'][0]['content']['parts'][0]['text'].strip()
-          
-          # تنظيف الكود إذا أضاف الجيمني علامات الـ markdown
           new_code = new_code.replace('```yaml', '').replace('```', '').strip()
 
-          # تحديث مستودع المنفذ (Full)
+          # تحديث مستودع Full
           REPO_URL = "https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/geass2.yml"
-          auth_headers = {"Authorization": f"token {os.getenv('PAT')}", "Accept": "application/vnd.github.v3+json"}
+          headers = {"Authorization": f"token {PAT}", "Accept": "application/vnd.github.v3+json"}
           
-          r_get = requests.get(REPO_URL, headers=auth_headers).json()
-          sha = r_get.get('sha')
-          
-          update_payload = {
+          get_file = requests.get(REPO_URL, headers=headers)
+          if get_file.status_code != 200:
+              print(f"❌ Could not find geass2.yml. Status: {get_file.status_code}")
+              sys.exit(1)
+              
+          sha = get_file.json().get('sha')
+          update_data = {
               "message": "AI Auto-Repair via Gemini 2.5 Flash Lite",
               "content": base64.b64encode(new_code.encode()).decode(),
-              "sha": sha,
-              "branch": "main"
+              "sha": sha
           }
-          requests.put(REPO_URL, headers=auth_headers, json=update_payload)
+          
+          final_res = requests.put(REPO_URL, headers=headers, json=update_data)
+          if final_res.status_code in [200, 201]:
+              print("✅ Success! Executor (Full) has been updated with the new brain.")
+          else:
+              print("❌ Update failed:", final_res.text)
           EOF
           python3 commander.py
