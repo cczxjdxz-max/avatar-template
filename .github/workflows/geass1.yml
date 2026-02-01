@@ -1,84 +1,100 @@
-name: GIAS-DEEP-DATA-EXTRACTOR
+name: GIAS-BIN-DEEP-SCANNER
 on:
   workflow_dispatch:
   push:
     paths: ['geass2.yml']
 
 jobs:
-  extract:
+  deep_scan:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Setup Tools
+      - name: 1. Setup Environment
         run: |
-          pip install UnityPy numpy
+          pip install UnityPy
           sudo apt-get install -y p7zip-full
 
-      - name: 2. Download & Unzip All Layers
+      - name: 2. Download & Extraction
         run: |
+          # تحميل ملف اللعبة
           wget -q -O game.apk "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
+          # فك الضغط الشامل لضمان الوصول لمجلد bin
           unzip -o game.apk -d game_files
-          # فحص إذا كان هناك ملفات OBB مدمجة أو ملفات AssetBin
-          find game_files -name "*.zip" -exec unzip -o {} -d game_files \;
+          echo "✅ APK extracted. Searching for bin folder..."
+          # التأكد من مسار مجلد bin
+          find game_files -name "bin" -type d
 
-      - name: 3. Deep Mining Script (The Engine)
+      - name: 3. Deep Mining Script (30K Files Scanner)
         run: |
           cat << 'EOF' > miner.py
           import UnityPy
           import json
           import os
 
-          # تصنيفات البيانات المطلوبة
-          results = {
-              "Bermuda_Map": [],
-              "Physics_Rules": [],
-              "Characters_Data": [],
-              "Weapons_Gernades": [],
-              "Gloo_Resources": []
-          }
+          # المسار المتوقع لمجلد bin بعد فك الضغط
+          # سنقوم بالبحث عن المجلد تلقائياً لضمان الدقة
+          target_dir = ""
+          for root, dirs, files in os.walk("game_files"):
+              if root.endswith("bin"):
+                  target_dir = root
+                  break
+
+          results = []
 
           def start_mining():
-              print("🚀 Starting Deep Scan...")
-              for root, dirs, files in os.walk("game_files"):
-                  for file in files:
-                      # فحص الملفات الضخمة التي تحتوي على الكائنات
-                      if file.endswith(('.assets', '.sharedassets', '.bundle', '.data')) or "level" in file:
-                          try:
-                              env = UnityPy.load(os.path.join(root, file))
-                              for obj in env.objects:
-                                  # نحن نبحث عن المكونات التي تحتوي على بيانات فيزيائية وتحويلات
-                                  if obj.type.name in ["MonoBehaviour", "Transform", "GameObject", "Mesh"]:
-                                      data = obj.read()
-                                      name = getattr(data, 'name', 'Unnamed_Object').lower()
-                                      
-                                      # منطق التصنيف الدقيق
-                                      info = {"n": name, "t": obj.type.name, "id": obj.path_id}
-                                      
-                                      if "bermuda" in name or "terrain" in name:
-                                          results["Bermuda_Map"].append(info)
-                                      elif "physic" in name or "gravity" in name or "velocity" in name:
-                                          results["Physics_Rules"].append(info)
-                                      elif "char" in name or "hero" in name or "skin" in name:
-                                          results["Characters_Data"].append(info)
-                                      elif "weapon" in name or "gun" in name or "grenade" in name:
-                                          results["Weapons_Gernades"].append(info)
-                                      elif "gloo" in name or "wall" in name:
-                                          results["Gloo_Resources"].append(info)
-                          except:
-                              continue
+              if not target_dir:
+                  print("❌ Error: 'bin' folder not found!")
+                  return
 
+              print(f"🚀 Found target: {target_dir}")
+              print(f"🔍 Scanning files for Unity signatures...")
+              
+              count = 0
+              for root, dirs, files in os.walk(target_dir):
+                  for file in files:
+                      file_path = os.path.join(root, file)
+                      
+                      # تجاهل الملفات الصغيرة جداً لتسريع العملية
+                      if os.path.getsize(file_path) < 5120:
+                          continue
+                          
+                      try:
+                          # محاولة فتح الملف كمحتوى Unity Assets
+                          env = UnityPy.load(file_path)
+                          
+                          for obj in env.objects:
+                              # استخراج أنواع البيانات التي تهمنا (الخرائط والفيزياء)
+                              if obj.type.name in ["MonoBehaviour", "Mesh", "Transform", "GameObject"]:
+                                  try:
+                                      data = obj.read()
+                                      name = getattr(data, 'name', 'Unnamed_Object')
+                                      
+                                      results.append({
+                                          "file_id": file,
+                                          "object_name": name,
+                                          "object_type": obj.type.name,
+                                          "data_size": obj.size
+                                      })
+                                      count += 1
+                                  except:
+                                      continue
+                      except:
+                          continue
+
+              # حفظ كل ما تم العثور عليه في ملف واحد
               with open("precision_game_data.json", "w", encoding='utf-8') as f:
                   json.dump(results, f, indent=2)
               
-              size = os.path.getsize("precision_game_data.json")
-              print(f"✅ Mining Complete! Data Size: {size / 1024:.2f} KB")
+              print(f"✅ Scanning Complete!")
+              print(f"📦 Successfully extracted {count} objects from encrypted files.")
+              print(f"📊 JSON Size: {os.path.getsize('precision_game_data.json') / 1024:.2f} KB")
 
           if __name__ == "__main__":
               start_mining()
           EOF
           python3 miner.py
 
-      - name: 4. Upload Precision Artifacts
+      - name: 4. Upload Precision Data
         uses: actions/upload-artifact@v4
         with:
-          name: FULL_PRECISION_DATA
+          name: BIN_FOLDER_EXTRACTED_DATA
           path: precision_game_data.json
