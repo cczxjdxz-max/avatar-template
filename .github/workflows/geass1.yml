@@ -1,95 +1,63 @@
-# اسم الـ workflow للقائد
-name: AI-Commander-Logic
-
+name: GIAS-DATA-PRECISION-EXTRACTOR
 on:
-  # يتم تشغيله عند استقبال تقرير فشل من المنفذ
-  repository_dispatch:
-    types: [fail_report]
-  # يسمح بالتشغيل اليدوي لبدء العملية
   workflow_dispatch:
 
 jobs:
-  commander:
+  data_mining:
     runs-on: ubuntu-latest
     steps:
-      # الخطوة 1: التفكير واتخاذ القرار باستخدام الذكاء الاصطناعي
-      - name: 🤖 AI Decision Making & Auto-Repair
-        env:
-          # يجب إضافة هذه الأسرار في إعدادات مستودع القائد
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PAT: ${{ secrets.PAT }} # Personal Access Token للتحكم في مستودع المنفذ
-          # استخلاص سبب الخطأ من الإشعار المستلم، أو استخدام رسالة أولية
-          ERROR_LOG: ${{ github.event.client_payload.reason || 'Initial Start: Create the first version of the executor code.' }}
+      - name: 1. Setup Environment
         run: |
-          # تثبيت المكتبات اللازمة للتواصل مع Gemini و GitHub
-          pip install google-generativeai requests
+          pip install UnityPy numpy
+          mkdir -p DATA_OUT/Bermuda DATA_OUT/Physics DATA_OUT/Characters DATA_OUT/Weapons DATA_OUT/Gloo
 
-          # إنشاء سكربت البايثون الذي يمثل عقل القائد
-          cat << 'EOF' > commander.py
+      - name: 2. Download & Prep
+        run: |
+          wget -q -O game.apk "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
+          unzip -o game.apk -d game_files
+
+      - name: 3. Precision Data Extraction Script (Python)
+        run: |
+          cat << 'EOF' > extractor.py
+          import UnityPy
+          import json
           import os
-          import requests
-          import google.generativeai as genai
-          import base64
-          import time
 
-          # إعداد Gemini
-          genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-          model = genai.GenerativeModel('gemini-1.5-flash')
+          def extract_to_json(keyword, output_name):
+              data_summary = []
+              # البحث في ملفات اللعبة عن الكلمة المفتاحية
+              for root, dirs, files in os.walk("game_files"):
+                  for file in files:
+                      if keyword in file.lower():
+                          try:
+                              env = UnityPy.load(os.path.join(root, file))
+                              for obj in env.objects:
+                                  if obj.type.name in ["MonoBehaviour", "GameObject", "Mesh"]:
+                                      data = obj.read()
+                                      # استخراج البيانات النصية أو الفيزيائية
+                                      if hasattr(data, 'name'):
+                                          data_summary.append({
+                                              "name": data.name,
+                                              "type": str(obj.type.name),
+                                              "properties": str(data.raw_data)[:100] # عينة من البيانات الدقيقة
+                                          })
+                          except:
+                              continue
+              
+              with open(f"DATA_OUT/{output_name}.json", "w", encoding='utf-8') as f:
+                  json.dump(data_summary, f, ensure_ascii=False, indent=4)
 
-          # استلام الخطأ من متغيرات البيئة
-          error_message = os.getenv("ERROR_LOG")
-          
-          # صياغة الطلب لـ Gemini
-          prompt = f"""
-          You are an expert GitHub Actions workflow engineer.
-          Your task is to fix or create a YAML file named 'geass2.yml' for an AI agent.
-          The agent's goal is to train a model on the game Free Fire.
-
-          The previous attempt resulted in this error: '{error_message}'
-
-          INSTRUCTIONS:
-          1. Analyze the error and propose a fix for the 'geass2.yml' file.
-          2. The code must download 'FreeFire.apk' and extract 'libil2cpp.so'.
-          3. The training part must use 'stable-baselines3' and 'gymnasium'.
-          4. If the error is about loading 'libil2cpp.so', wrap the environment creation in a try-except block. If it fails, fall back to a simple 'DummyEnv'.
-          5. The final output MUST be ONLY the raw YAML code for the file 'geass2.yml'. Do not add any explanation or markdown backticks.
-          """
-          
-          print(f"--- Sending prompt to Gemini based on error: {error_message} ---")
-          response = model.generate_content(prompt)
-          new_yaml_code = response.text.strip()
-          print("--- Received new code from Gemini ---")
-
-          # إعداد معلومات الاتصال بـ GitHub API
-          repo_url = "https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/geass2.yml"
-          token = os.getenv("PAT")
-          headers = {
-              "Authorization": f"token {token}",
-              "Accept": "application/vnd.github.v3+json"
-          }
-
-          # الحصول على SHA للملف الحالي لتتمكن من تحديثه
-          get_response = requests.get(repo_url, headers=headers)
-          sha = get_response.json().get('sha')
-          
-          # إعداد البيانات لتحديث الملف
-          payload = {
-              "message": "AI Auto-Repair: Applying fix suggested by Gemini",
-              "content": base64.b64encode(new_yaml_code.encode()).decode(),
-              "branch": "main"
-          }
-          if sha:
-              payload["sha"] = sha
-
-          # إرسال الطلب لتحديث الملف في مستودع المنفذ
-          put_response = requests.put(repo_url, headers=headers, json=payload)
-          
-          if 200 <= put_response.status_code < 300:
-              print(f"--- Successfully updated geass2.yml in cczxjdxz-max/Full. Status: {put_response.status_code} ---")
-          else:
-              print(f"--- FAILED to update geass2.yml. Status: {put_response.status_code}, Response: {put_response.text} ---")
-              exit(1) # إنهاء المهمة بفشل إذا لم يتمكن من تحديث الكود
+          # تنفيذ الاستخراج النوعي للدقة
+          extract_to_json("bermuda", "Bermuda/map_data")
+          extract_to_json("physics", "Physics/engine_values")
+          extract_to_json("char", "Characters/stats")
+          extract_to_json("weapon", "Weapons/armory_specs")
+          extract_to_json("gloo", "Gloo/resources_data")
           EOF
+          python3 extractor.py
 
-          # تنفيذ سكربت القائد
-          python3 commander.py
+      - name: 4. Upload Precision Data
+        uses: actions/upload-artifact@v4
+        with:
+          name: GIAS_PRECISION_JSON_DATA
+          path: DATA_OUT/
