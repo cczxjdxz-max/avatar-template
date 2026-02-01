@@ -1,63 +1,84 @@
-name: GIAS-DATA-PRECISION-EXTRACTOR
+name: GIAS-DEEP-DATA-EXTRACTOR
 on:
   workflow_dispatch:
+  push:
+    paths: ['geass2.yml']
 
 jobs:
-  data_mining:
+  extract:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Setup Environment
+      - name: 1. Setup Tools
         run: |
           pip install UnityPy numpy
-          mkdir -p DATA_OUT/Bermuda DATA_OUT/Physics DATA_OUT/Characters DATA_OUT/Weapons DATA_OUT/Gloo
+          sudo apt-get install -y p7zip-full
 
-      - name: 2. Download & Prep
+      - name: 2. Download & Unzip All Layers
         run: |
           wget -q -O game.apk "https://dl.cdn.freefiremobile.com/live/package/FreeFire.apk"
           unzip -o game.apk -d game_files
+          # فحص إذا كان هناك ملفات OBB مدمجة أو ملفات AssetBin
+          find game_files -name "*.zip" -exec unzip -o {} -d game_files \;
 
-      - name: 3. Precision Data Extraction Script (Python)
+      - name: 3. Deep Mining Script (The Engine)
         run: |
-          cat << 'EOF' > extractor.py
+          cat << 'EOF' > miner.py
           import UnityPy
           import json
           import os
 
-          def extract_to_json(keyword, output_name):
-              data_summary = []
-              # البحث في ملفات اللعبة عن الكلمة المفتاحية
+          # تصنيفات البيانات المطلوبة
+          results = {
+              "Bermuda_Map": [],
+              "Physics_Rules": [],
+              "Characters_Data": [],
+              "Weapons_Gernades": [],
+              "Gloo_Resources": []
+          }
+
+          def start_mining():
+              print("🚀 Starting Deep Scan...")
               for root, dirs, files in os.walk("game_files"):
                   for file in files:
-                      if keyword in file.lower():
+                      # فحص الملفات الضخمة التي تحتوي على الكائنات
+                      if file.endswith(('.assets', '.sharedassets', '.bundle', '.data')) or "level" in file:
                           try:
                               env = UnityPy.load(os.path.join(root, file))
                               for obj in env.objects:
-                                  if obj.type.name in ["MonoBehaviour", "GameObject", "Mesh"]:
+                                  # نحن نبحث عن المكونات التي تحتوي على بيانات فيزيائية وتحويلات
+                                  if obj.type.name in ["MonoBehaviour", "Transform", "GameObject", "Mesh"]:
                                       data = obj.read()
-                                      # استخراج البيانات النصية أو الفيزيائية
-                                      if hasattr(data, 'name'):
-                                          data_summary.append({
-                                              "name": data.name,
-                                              "type": str(obj.type.name),
-                                              "properties": str(data.raw_data)[:100] # عينة من البيانات الدقيقة
-                                          })
+                                      name = getattr(data, 'name', 'Unnamed_Object').lower()
+                                      
+                                      # منطق التصنيف الدقيق
+                                      info = {"n": name, "t": obj.type.name, "id": obj.path_id}
+                                      
+                                      if "bermuda" in name or "terrain" in name:
+                                          results["Bermuda_Map"].append(info)
+                                      elif "physic" in name or "gravity" in name or "velocity" in name:
+                                          results["Physics_Rules"].append(info)
+                                      elif "char" in name or "hero" in name or "skin" in name:
+                                          results["Characters_Data"].append(info)
+                                      elif "weapon" in name or "gun" in name or "grenade" in name:
+                                          results["Weapons_Gernades"].append(info)
+                                      elif "gloo" in name or "wall" in name:
+                                          results["Gloo_Resources"].append(info)
                           except:
                               continue
+
+              with open("precision_game_data.json", "w", encoding='utf-8') as f:
+                  json.dump(results, f, indent=2)
               
-              with open(f"DATA_OUT/{output_name}.json", "w", encoding='utf-8') as f:
-                  json.dump(data_summary, f, ensure_ascii=False, indent=4)
+              size = os.path.getsize("precision_game_data.json")
+              print(f"✅ Mining Complete! Data Size: {size / 1024:.2f} KB")
 
-          # تنفيذ الاستخراج النوعي للدقة
-          extract_to_json("bermuda", "Bermuda/map_data")
-          extract_to_json("physics", "Physics/engine_values")
-          extract_to_json("char", "Characters/stats")
-          extract_to_json("weapon", "Weapons/armory_specs")
-          extract_to_json("gloo", "Gloo/resources_data")
+          if __name__ == "__main__":
+              start_mining()
           EOF
-          python3 extractor.py
+          python3 miner.py
 
-      - name: 4. Upload Precision Data
+      - name: 4. Upload Precision Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GIAS_PRECISION_JSON_DATA
-          path: DATA_OUT/
+          name: FULL_PRECISION_DATA
+          path: precision_game_data.json
