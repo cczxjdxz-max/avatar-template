@@ -1,69 +1,95 @@
+# اسم الـ workflow للقائد
 name: AI-Commander-Logic
+
 on:
+  # يتم تشغيله عند استقبال تقرير فشل من المنفذ
   repository_dispatch:
     types: [fail_report]
+  # يسمح بالتشغيل اليدوي لبدء العملية
   workflow_dispatch:
 
 jobs:
   commander:
     runs-on: ubuntu-latest
     steps:
-      - name: 🤖 AI Decision Making
+      # الخطوة 1: التفكير واتخاذ القرار باستخدام الذكاء الاصطناعي
+      - name: 🤖 AI Decision Making & Auto-Repair
         env:
-          # تم تغيير الاسم هنا ليطابق ما لديك في الـ Secrets
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          PAT: ${{ secrets.PAT }}
-          ERROR_LOG: ${{ github.event.client_payload.reason }}
+          # يجب إضافة هذه الأسرار في إعدادات مستودع القائد
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PAT: ${{ secrets.PAT }} # Personal Access Token للتحكم في مستودع المنفذ
+          # استخلاص سبب الخطأ من الإشعار المستلم، أو استخدام رسالة أولية
+          ERROR_LOG: ${{ github.event.client_payload.reason || 'Initial Start: Create the first version of the executor code.' }}
         run: |
+          # تثبيت المكتبات اللازمة للتواصل مع Gemini و GitHub
+          pip install google-generativeai requests
+
+          # إنشاء سكربت البايثون الذي يمثل عقل القائد
           cat << 'EOF' > commander.py
-          import os, requests, base64, json, sys
+          import os
+          import requests
+          import google.generativeai as genai
+          import base64
+          import time
 
-          # قراءة المفتاح بالاسم الجديد
-          API_KEY = os.getenv("GOOGLE_API_KEY")
-          PAT = os.getenv("PAT")
+          # إعداد Gemini
+          genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+          model = genai.GenerativeModel('gemini-1.5-flash')
+
+          # استلام الخطأ من متغيرات البيئة
+          error_message = os.getenv("ERROR_LOG")
           
-          if not API_KEY:
-              print("❌ Error: GOOGLE_API_KEY is missing! Please check your Secrets.")
-              sys.exit(1)
+          # صياغة الطلب لـ Gemini
+          prompt = f"""
+          You are an expert GitHub Actions workflow engineer.
+          Your task is to fix or create a YAML file named 'geass2.yml' for an AI agent.
+          The agent's goal is to train a model on the game Free Fire.
 
-          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
-          error = os.getenv("ERROR_LOG", "Initial optimization and setup")
+          The previous attempt resulted in this error: '{error_message}'
+
+          INSTRUCTIONS:
+          1. Analyze the error and propose a fix for the 'geass2.yml' file.
+          2. The code must download 'FreeFire.apk' and extract 'libil2cpp.so'.
+          3. The training part must use 'stable-baselines3' and 'gymnasium'.
+          4. If the error is about loading 'libil2cpp.so', wrap the environment creation in a try-except block. If it fails, fall back to a simple 'DummyEnv'.
+          5. The final output MUST be ONLY the raw YAML code for the file 'geass2.yml'. Do not add any explanation or markdown backticks.
+          """
           
-          prompt = f"As an AI expert, fix 'geass2.yml' for Free Fire AI. Error: {error}. Requirements: Use 'unzip -o -j', 1T steps, and return ONLY the raw YAML code."
+          print(f"--- Sending prompt to Gemini based on error: {error_message} ---")
+          response = model.generate_content(prompt)
+          new_yaml_code = response.text.strip()
+          print("--- Received new code from Gemini ---")
 
-          payload = {"contents": [{"parts": [{"text": prompt}]}]}
-          
-          # الاتصال بـ Gemini
-          response = requests.post(f"{URL}?key={API_KEY}", json=payload)
-          result = response.json()
-
-          if 'candidates' not in result:
-              print("❌ Gemini API Error:", json.dumps(result, indent=2))
-              sys.exit(1)
-
-          new_code = result['candidates'][0]['content']['parts'][0]['text'].strip()
-          new_code = new_code.replace('```yaml', '').replace('```', '').strip()
-
-          # تحديث مستودع Full
-          REPO_URL = "https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/geass2.yml"
-          headers = {"Authorization": f"token {PAT}", "Accept": "application/vnd.github.v3+json"}
-          
-          get_file = requests.get(REPO_URL, headers=headers)
-          if get_file.status_code != 200:
-              print(f"❌ Could not find geass2.yml. Status: {get_file.status_code}")
-              sys.exit(1)
-              
-          sha = get_file.json().get('sha')
-          update_data = {
-              "message": "AI Auto-Repair via Gemini 2.5 Flash Lite",
-              "content": base64.b64encode(new_code.encode()).decode(),
-              "sha": sha
+          # إعداد معلومات الاتصال بـ GitHub API
+          repo_url = "https://api.github.com/repos/cczxjdxz-max/Full/contents/.github/workflows/geass2.yml"
+          token = os.getenv("PAT")
+          headers = {
+              "Authorization": f"token {token}",
+              "Accept": "application/vnd.github.v3+json"
           }
+
+          # الحصول على SHA للملف الحالي لتتمكن من تحديثه
+          get_response = requests.get(repo_url, headers=headers)
+          sha = get_response.json().get('sha')
           
-          final_res = requests.put(REPO_URL, headers=headers, json=update_data)
-          if final_res.status_code in [200, 201]:
-              print("✅ Success! Executor (Full) has been updated with the new brain.")
+          # إعداد البيانات لتحديث الملف
+          payload = {
+              "message": "AI Auto-Repair: Applying fix suggested by Gemini",
+              "content": base64.b64encode(new_yaml_code.encode()).decode(),
+              "branch": "main"
+          }
+          if sha:
+              payload["sha"] = sha
+
+          # إرسال الطلب لتحديث الملف في مستودع المنفذ
+          put_response = requests.put(repo_url, headers=headers, json=payload)
+          
+          if 200 <= put_response.status_code < 300:
+              print(f"--- Successfully updated geass2.yml in cczxjdxz-max/Full. Status: {put_response.status_code} ---")
           else:
-              print("❌ Update failed:", final_res.text)
+              print(f"--- FAILED to update geass2.yml. Status: {put_response.status_code}, Response: {put_response.text} ---")
+              exit(1) # إنهاء المهمة بفشل إذا لم يتمكن من تحديث الكود
           EOF
+
+          # تنفيذ سكربت القائد
           python3 commander.py
