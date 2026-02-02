@@ -1,0 +1,50 @@
+name: GEASS-LIVE-REMOTE-TEST
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test_remote_apk:
+    runs-on: macos-latest # ضروري لتشغيل المحاكي بسرعة
+    steps:
+      - name: 1. DOWNLOAD FROM RELEASE LINK
+        run: |
+          echo "📥 Downloading the generated APK for testing..."
+          # استخدام الرابط الذي زودتني به
+          curl -L "https://release-assets.githubusercontent.com/github-production-release-asset/1140560756/2ba806ea-4930-426a-ac86-c5c58fa7e548?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-02-02T23%3A06%3A01Z&rscd=attachment%3B+filename%3DGeass_Internal_Citadel.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-02-02T22%3A05%3A36Z&ske=2026-02-02T23%3A06%3A01Z&sks=b&skv=2018-11-09&sig=s4ghLatFIhueRhPtuyibj%2FPNH5D6V9uQgXSMKbf8Hvo%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc3MDA3MzUzNiwibmJmIjoxNzcwMDY5OTM2LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.-bz5Bm2bGcr_BAYm6bOdMcsmJzHRZS7g4AjLvwXmPoc&response-content-disposition=attachment%3B%20filename%3DGeass_Internal_Citadel.apk&response-content-type=application%2Fvnd.android.package-archive" -o Test_Citadel.apk
+          
+          echo "🔍 Quick Verification..."
+          if [ ! -s Test_Citadel.apk ]; then echo "❌ Download failed or link expired"; exit 1; fi
+          ls -lh Test_Citadel.apk
+
+      - name: 2. LIVE EMULATOR RUN (Headless)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          emulator-boot-timeout: 1200
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096
+          script: |
+            adb wait-for-device
+            echo "🚀 Installing..."
+            adb install -r Test_Citadel.apk
+            
+            echo "⏱️ Launching Game & Monitoring Logs..."
+            # تشغيل اللعبة
+            adb shell monkey -p com.dts.freefireth -c android.intent.category.LAUNCHER 1
+            
+            # مراقبة الـ Logs لمدة دقيقة للبحث عن بصمة المحرك المحقون
+            timeout 60s adb logcat | grep -Ei "Sovereign|Internal|Python|Unity" > live_debug_logs.txt || true
+            
+            echo "📊 Capturing Screenshot (Frame Buffer)..."
+            adb shell screencap -p /sdcard/screen.png
+            adb pull /sdcard/screen.png final_frame.png
+
+      - name: 3. UPLOAD DEBUG REPORT
+        uses: actions/upload-artifact@v4
+        with:
+          name: LIVE_TEST_REPORT
+          path: |
+            live_debug_logs.txt
+            final_frame.png
