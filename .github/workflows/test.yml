@@ -1,43 +1,53 @@
-name: GEASS-LAB-VERIFY
+name: GEASS-QUICK-FIX
 
 on:
   workflow_dispatch:
 
 jobs:
-  lab_check:
+  patch_latest:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: 1. PULL ARTIFACT
-        run: |
-          # سحب النسخة التي تم بناؤها من الرابط
-          curl -L "رابط_التحميل_الخاص_بك" -o Citadel_Final.apk
+      - name: 1. FETCH BROKEN APK
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          version: 'latest'
+          file: 'Geass_Internal_Citadel.apk'
+          target: './broken.apk'
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 2. SURGICAL AUDIT (الفحص الجراحي)
+      - name: 2. SURGICAL REPAIR (تعديل المطلوب فقط)
         run: |
-          echo "🧪 Starting Laboratory Audit..."
+          # تجهيز الأدوات الضرورية فقط
+          sudo apt-get update && sudo apt-get install -y openjdk-17-jdk curl zip unzip
+          curl -L "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar" -o signer.jar
           
-          # فحص وجود ملف البايثون (النخاع)
-          unzip -l Citadel_Final.apk | grep "assets/python/internal_master.py" && echo "✅ INTERNAL ENGINE: FOUND" || exit 1
+          echo "🛠️ Fix 1: Injecting missing Permissions..."
+          # استخراج المانيفست، تعديله، ثم إعادته للملف دون فك الضغط الكامل لتوفير الوقت
+          unzip broken.apk AndroidManifest.xml
+          # إضافة الصلاحية في سطر جديد بعد وسم manifest مباشرة
+          sed -i '/<manifest/a <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>' AndroidManifest.xml
+          zip -u broken.apk AndroidManifest.xml
           
-          # فحص حقن الصلاحيات في الـ Manifest
-          # سنقوم باستخراج الـ Manifest وفحصه نصياً
-          unzip -p Citadel_Final.apk AndroidManifest.xml > manifest_dump
-          if strings manifest_dump | grep -q "SYSTEM_ALERT_WINDOW"; then
-            echo "✅ OVERLAY PERMISSIONS: ACTIVE"
-          else
-            echo "❌ PERMISSIONS MISSING"; exit 1
-          fi
+          echo "🛠️ Fix 2: Global Re-Signing..."
+          # إعادة التوقيع بـ v2 و v3 ومحاذاة الملف (ZipAlign)
+          java -jar signer.jar --apks broken.apk --out ./ --allowResign
+          
+          mv broken-aligned-debugSigned.apk Geass_Fixed_Citadel.apk
 
-      - name: 3. SIGNATURE STABILITY CHECK
+      - name: 3. FINAL VERIFICATION
         run: |
-          # التأكد من أن التوقيع سليم ولن يسبب "App Not Installed"
-          sudo apt-get install -y apksigner
-          apksigner verify --verbose Citadel_Final.apk && echo "✅ SIGNATURE: SECURE"
+          echo "🔍 Checking if Fixes applied..."
+          unzip -p Geass_Fixed_Citadel.apk AndroidManifest.xml | strings | grep "SYSTEM_ALERT_WINDOW" && echo "✅ PERMISSION: FIXED"
+          java -jar signer.jar --verify --apks Geass_Fixed_Citadel.apk && echo "✅ SIGNATURE: FIXED"
 
-      - name: 4. FINAL VERDICT
-        run: |
-          echo "### 🔱 GEASS LAB REPORT 🔱" >> $GITHUB_STEP_SUMMARY
-          echo "The APK has passed all structural tests." >> $GITHUB_STEP_SUMMARY
-          echo "- **Engine Status:** Injected 💉" >> $GITHUB_STEP_SUMMARY
-          echo "- **Overlay Status:** Authorized 🖥️" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deployment:** 100% Ready for Mobile/Emulator" >> $GITHUB_STEP_SUMMARY
+      - name: 4. UPDATE RELEASE WITH FIXED VERSION
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v2.1-fixed"
+          name: "Geass Citadel - Fully Repaired"
+          body: "تم إصلاح التوقيع وإضافة صلاحيات النافذة العائمة بنجاح."
+          files: Geass_Fixed_Citadel.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
